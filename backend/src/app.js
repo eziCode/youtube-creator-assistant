@@ -20,6 +20,8 @@ import {
 	startDownload as startShortDownload,
 	cancelDownload as cancelShortDownload,
 	getDownload as getShortDownload,
+	DownloadStatus as DownloadJobStatus,
+	getActiveDownloadForSession,
 } from "../functions/shorts/download_manager.js";
 import {
 	createShortJob,
@@ -133,15 +135,53 @@ const registerRoutes = () => {
 		}
 
 		try {
+			const normalizeDownload = (download) => {
+				if (!download) return null;
+				const { sessionId, ...rest } = download;
+				return rest;
+			};
+
 			const previousDownloadId = req.session?.activeShortDownloadId;
 			if (previousDownloadId) {
+				const existing = getShortDownload(previousDownloadId);
+				if (
+					existing &&
+					existing.sessionId === req.sessionID &&
+					existing.videoId === videoId &&
+					existing.status !== DownloadJobStatus.FAILED &&
+					existing.status !== DownloadJobStatus.CANCELLED
+				) {
+					return res.json({ download: normalizeDownload(existing) });
+				}
 				await cancelShortDownload(previousDownloadId, { deleteFile: true });
+			} else {
+				const activeForSession = getActiveDownloadForSession(req.sessionID);
+				if (
+					activeForSession &&
+					activeForSession.videoId === videoId &&
+					activeForSession.status !== DownloadJobStatus.FAILED &&
+					activeForSession.status !== DownloadJobStatus.CANCELLED
+				) {
+					const existing = getShortDownload(activeForSession.id);
+					if (existing) {
+						req.session.activeShortDownloadId = existing.id;
+						req.session.activeShortVideoId = videoId;
+
+						await new Promise((resolve, reject) => {
+							req.session.save((err) => {
+								if (err) reject(err);
+								else resolve();
+							});
+						});
+
+						return res.json({ download: normalizeDownload(existing) });
+					}
+				}
 			}
 
 			const download = await startShortDownload({
 				videoId,
 				sessionId: req.sessionID,
-				outputDir: path.resolve(process.cwd(), "downloads"),
 			});
 
 			req.session.activeShortDownloadId = download.id;
@@ -154,7 +194,7 @@ const registerRoutes = () => {
 				});
 			});
 
-			return res.json({ download });
+			return res.json({ download: normalizeDownload(getShortDownload(download.id) ?? download) });
 		} catch (err) {
 			console.error("[routes:/shorts/download] failed to start download", err);
 			return res.status(500).json({ error: err.message || "failed to start download" });

@@ -1,17 +1,7 @@
 import { randomUUID } from "crypto";
 import EventEmitter from "events";
-import fs from "fs/promises";
-import path from "path";
 import { downloadYouTubeVideo, DownloadAbortedError } from "./download_video.js";
-
-const safeDelete = async (targetPath) => {
-	if (!targetPath) return;
-	try {
-		await fs.rm(targetPath, { force: true });
-	} catch {
-		// ignore
-	}
-};
+import { deleteSourceVideo } from "./video_storage.js";
 
 const downloads = new Map();
 
@@ -33,13 +23,14 @@ const buildLogger = (baseLogger = console, context = {}) => {
 	};
 };
 
-const createDownloadRecord = ({ id, videoId, sessionId, outputDir, logger }) => ({
+const createDownloadRecord = ({ id, videoId, sessionId, logger }) => ({
 	id,
 	videoId,
 	sessionId,
-	outputDir,
 	status: DownloadStatus.PENDING,
-	filePath: null,
+	fileId: null,
+	filename: null,
+	fileLength: null,
 	error: null,
 	startedAt: new Date(),
 	completedAt: null,
@@ -54,41 +45,31 @@ const updateRecordStatus = (record, statusUpdate) => {
 	record.emitter.emit("status", record);
 };
 
-const resolveOutputPath = (record) => {
-	if (record.filePath) {
-		return record.filePath;
-	}
-	return path.resolve(record.outputDir, `${record.videoId}.mp4`);
-};
-
-export const startDownload = async ({
-	videoId,
-	sessionId,
-	outputDir,
-	logger = console,
-}) => {
+export const startDownload = async ({ videoId, sessionId, logger = console }) => {
 	if (!sessionId) {
 		throw new Error("sessionId is required to start a download.");
 	}
 
 	const id = randomUUID();
-	const record = createDownloadRecord({ id, videoId, sessionId, outputDir, logger });
+	const record = createDownloadRecord({ id, videoId, sessionId, logger });
 	downloads.set(id, record);
 
 	updateRecordStatus(record, { status: DownloadStatus.DOWNLOADING });
 
 	const downloadPromise = downloadYouTubeVideo(videoId, {
-		outputDir,
+		downloadId: id,
 		signal: record.controller.signal,
 		logger: record.logger,
 	})
-		.then((filePath) => {
+		.then((uploadResult) => {
 			updateRecordStatus(record, {
 				status: DownloadStatus.COMPLETED,
-				filePath,
+				fileId: uploadResult?.fileId ?? null,
+				filename: uploadResult?.filename ?? null,
+				fileLength: uploadResult?.length ?? null,
 				completedAt: new Date(),
 			});
-			return filePath;
+			return uploadResult;
 		})
 		.catch((error) => {
 			const status =
@@ -130,7 +111,9 @@ export const getDownload = (id) => {
 		videoId: record.videoId,
 		sessionId: record.sessionId,
 		status: record.status,
-		filePath: record.filePath,
+		fileId: record.fileId ? record.fileId.toString() : null,
+		filename: record.filename,
+		fileLength: record.fileLength,
 		error: record.error,
 		startedAt: record.startedAt,
 		completedAt: record.completedAt,
@@ -148,9 +131,9 @@ export const cancelDownload = async (id, { deleteFile = false } = {}) => {
 		record.status === DownloadStatus.COMPLETED ||
 		record.status === DownloadStatus.FAILED
 	) {
-		if (deleteFile && record.filePath) {
-			await safeDelete(record.filePath);
-			updateRecordStatus(record, { filePath: null });
+		if (deleteFile && record.fileId) {
+			await deleteSourceVideo(record.fileId).catch(() => undefined);
+			updateRecordStatus(record, { fileId: null, filename: null, fileLength: null });
 		}
 		return true;
 	}
@@ -166,9 +149,10 @@ export const cancelDownload = async (id, { deleteFile = false } = {}) => {
 	}
 
 	if (deleteFile) {
-		const filePath = resolveOutputPath(record);
-		await safeDelete(filePath);
-		updateRecordStatus(record, { filePath: null });
+		if (record.fileId) {
+			await deleteSourceVideo(record.fileId).catch(() => undefined);
+			updateRecordStatus(record, { fileId: null, filename: null, fileLength: null });
+		}
 	}
 
 	return true;
@@ -180,16 +164,6 @@ export const awaitDownload = async (id) => {
 		throw new Error("Download not found.");
 	}
 	return record.waitPromise;
-};
-
-export const deleteDownloadFile = async (id) => {
-	const record = downloads.get(id);
-	if (!record?.filePath) {
-		return false;
-	}
-	await safeDelete(record.filePath);
-	updateRecordStatus(record, { filePath: null });
-	return true;
 };
 
 export const subscribeToDownload = (id, listener) => {
@@ -209,7 +183,9 @@ export const getActiveDownloadForSession = (sessionId) => {
 				id: record.id,
 				videoId: record.videoId,
 				status: record.status,
-				filePath: record.filePath,
+				fileId: record.fileId ? record.fileId.toString() : null,
+				filename: record.filename,
+				fileLength: record.fileLength,
 			};
 		}
 	}

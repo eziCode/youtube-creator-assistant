@@ -55,7 +55,9 @@ export interface ShortDownload {
   id: string;
   videoId: string;
   status: ShortDownloadStatus;
-  filePath?: string | null;
+  fileId?: string | null;
+  filename?: string | null;
+  fileLength?: number | null;
   startedAt?: string | null;
   completedAt?: string | null;
 }

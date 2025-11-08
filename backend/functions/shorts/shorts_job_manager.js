@@ -6,12 +6,12 @@ import {
 	awaitDownload,
 	getDownload,
 	cancelDownload,
-	deleteDownloadFile,
 	DownloadStatus as DownloadJobStatus,
 } from "./download_manager.js";
 import { trimVideo } from "./trim_video.js";
 import { uploadShortVideo } from "./upload_video.js";
 import { DownloadAbortedError } from "./download_video.js";
+import { materializeSourceVideoToFile } from "./video_storage.js";
 
 const jobs = new Map();
 
@@ -65,6 +65,7 @@ const createRecord = ({
 		result: null,
 		error: null,
 		trimmedPath: null,
+		sourceLocalPath: null,
 		uploadResult: null,
 	};
 };
@@ -163,14 +164,21 @@ const runJob = async (record) => {
 			throw new Error("Associated video download could not be found.");
 		}
 
-		const videoPath = await awaitDownload(record.downloadId);
+		const downloadResult = await awaitDownload(record.downloadId);
+
+		if (!downloadResult?.fileId) {
+			throw new Error("Downloaded video is not available in storage.");
+		}
+
+		const sourceLocalPath = await materializeSourceVideoToFile(downloadResult.fileId);
+		record.sourceLocalPath = sourceLocalPath;
 
 		updateRecord(record, {
 			step: "trimming",
 			message: "Trimming clip from source video…",
 		});
 
-		const trimmedPath = await trimVideo(videoPath, [record.clip.startTime, record.clip.endTime], {
+		const trimmedPath = await trimVideo(sourceLocalPath, [record.clip.startTime, record.clip.endTime], {
 			outputDir: DEFAULT_TRIM_OUTPUT_DIR,
 			overwrite: true,
 		});
@@ -230,15 +238,12 @@ const runJob = async (record) => {
 			record.logger.warn("Short job cancelled", { error: error?.message });
 		}
 	} finally {
+		if (record.sourceLocalPath) {
+			await disposeTrimmedFile(record.sourceLocalPath, record.logger);
+			record.sourceLocalPath = null;
+		}
 		if (record.trimmedPath) {
 			await disposeTrimmedFile(record.trimmedPath, record.logger);
-		}
-		try {
-			await deleteDownloadFile(record.downloadId);
-		} catch (cleanupError) {
-			record.logger?.warn?.("Failed to clean up downloaded video file", {
-				error: cleanupError,
-			});
 		}
 	}
 };

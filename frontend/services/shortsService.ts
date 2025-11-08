@@ -82,7 +82,9 @@ const parseDownload = (data: any): ShortDownload => {
 		id: String(data.id),
 		videoId: String(data.videoId ?? ""),
 		status: (data.status ?? "pending") as ShortDownloadStatus,
-		filePath: typeof data.filePath === "string" ? data.filePath : null,
+		fileId: typeof data.fileId === "string" ? data.fileId : null,
+		filename: typeof data.filename === "string" ? data.filename : null,
+		fileLength: typeof data.fileLength === "number" ? data.fileLength : null,
 		startedAt: typeof data.startedAt === "string" ? data.startedAt : null,
 		completedAt: typeof data.completedAt === "string" ? data.completedAt : null,
 	};

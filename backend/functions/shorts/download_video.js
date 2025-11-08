@@ -1,8 +1,5 @@
 import { spawn } from "child_process";
-import fs from "fs/promises";
-import path from "path";
-
-const DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "downloads");
+import { uploadSourceVideoFromStream } from "./video_storage.js";
 
 export class DownloadAbortedError extends Error {
 	constructor(message = "Download aborted.") {
@@ -11,51 +8,43 @@ export class DownloadAbortedError extends Error {
 	}
 }
 
-const ensureDirectory = async (dirPath) => {
-	await fs.mkdir(dirPath, { recursive: true });
-};
-
-/**
- * Downloads a YouTube video using yt-dlp with support for cancellation through an AbortSignal.
- * Resolves with the absolute path to the downloaded file.
- */
 export async function downloadYouTubeVideo(
 	videoId,
-	{ outputDir = DEFAULT_OUTPUT_DIR, signal, logger = console } = {}
+	{ downloadId, signal, logger = console } = {}
 ) {
 	if (!videoId || typeof videoId !== "string") {
 		throw new Error("A valid videoId is required to download a YouTube video.");
 	}
 
-	const resolvedOutputDir = path.resolve(outputDir ?? DEFAULT_OUTPUT_DIR);
-	await ensureDirectory(resolvedOutputDir);
-
-	const outputPath = path.join(resolvedOutputDir, `${videoId}.mp4`);
-	const tempPath = `${outputPath}.part`;
 	const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
 	logger?.info?.("[downloadYouTubeVideo] starting download", {
 		videoId,
-		outputPath,
+		downloadId,
 	});
 
 	return new Promise((resolve, reject) => {
 		let aborted = false;
 		const child = spawn(
 			"yt-dlp",
-			["-f", "best", "--no-part", "-o", outputPath, videoUrl],
+			["-f", "best", "--no-part", "-o", "-", videoUrl],
 			{
 				stdio: ["ignore", "pipe", "pipe"],
 			}
 		);
 
-		const cleanupTempFile = async () => {
-			try {
-				await fs.rm(tempPath, { force: true });
-			} catch {
-				// ignore
-			}
-		};
+		let uploader;
+		try {
+			uploader = uploadSourceVideoFromStream({
+				stream: child.stdout,
+				videoId,
+				downloadId,
+			});
+		} catch (error) {
+			child.kill("SIGKILL");
+			reject(error);
+			return;
+		}
 
 		const handleAbort = async () => {
 			if (aborted) {
@@ -64,7 +53,12 @@ export async function downloadYouTubeVideo(
 			aborted = true;
 			logger?.warn?.("[downloadYouTubeVideo] aborting download", { videoId });
 			child.kill("SIGKILL");
-			await cleanupTempFile();
+			try {
+				await uploader?.abort(new DownloadAbortedError());
+			} catch {
+				// ignore
+			}
+			discardUploadPromiseRejection();
 		};
 
 		if (signal) {
@@ -81,12 +75,49 @@ export async function downloadYouTubeVideo(
 			logger?.debug?.("[downloadYouTubeVideo] yt-dlp stdout", data.toString());
 		});
 
+		child.stdout?.on("error", (error) => {
+			logger?.warn?.("[downloadYouTubeVideo] stdout stream error", {
+				videoId,
+				error: error?.message,
+			});
+			discardUploadPromiseRejection();
+			void handleFailure(error);
+		});
+
 		child.stderr?.on("data", (data) => {
 			logger?.debug?.("[downloadYouTubeVideo] yt-dlp stderr", data.toString());
 		});
 
+		const uploadPromise = uploader.promise;
+		const discardUploadPromiseRejection = () => {
+			void uploadPromise.catch(() => undefined);
+		};
+
+		const handleFailure = async (error) => {
+			if (aborted) {
+				discardUploadPromiseRejection();
+				return reject(new DownloadAbortedError());
+			}
+			try {
+				await uploader.abort(error);
+			} catch {
+				// ignore
+			}
+			discardUploadPromiseRejection();
+			logger?.error?.("[downloadYouTubeVideo] download failed", {
+				videoId,
+				error: error?.message,
+			});
+			reject(error);
+		};
+
 		child.on("error", async (error) => {
-			await cleanupTempFile();
+			try {
+				await uploader.abort(error);
+			} catch {
+				// ignore
+			}
+			discardUploadPromiseRejection();
 			if (aborted) {
 				return reject(new DownloadAbortedError());
 			}
@@ -96,27 +127,28 @@ export async function downloadYouTubeVideo(
 
 		child.on("close", async (code) => {
 			if (code === 0 && !aborted) {
-				logger?.info?.("[downloadYouTubeVideo] download complete", {
-					videoId,
-					outputPath,
-				});
-				resolve(outputPath);
-				return;
+				try {
+					const uploadResult = await uploadPromise;
+					logger?.info?.("[downloadYouTubeVideo] download complete", {
+						videoId,
+						fileId: uploadResult?.fileId?.toString?.() ?? uploadResult?.fileId,
+					});
+					resolve(uploadResult);
+					return;
+				} catch (error) {
+					await handleFailure(error);
+					return;
+				}
 			}
 
-			await cleanupTempFile();
-
 			if (aborted) {
+				discardUploadPromiseRejection();
 				reject(new DownloadAbortedError());
 				return;
 			}
 
 			const error = new Error(`yt-dlp exited with code ${code ?? "unknown"}`);
-			logger?.error?.("[downloadYouTubeVideo] download failed", {
-				videoId,
-				code,
-			});
-			reject(error);
+			await handleFailure(error);
 		});
 	});
 }

@@ -53,6 +53,7 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
 
   const downloadRequestSeqRef = useRef(0);
   const currentDownloadIdRef = useRef<string | null>(null);
+  const currentDownloadVideoIdRef = useRef<string | null>(null);
   const jobPollsRef = useRef<Record<string, { cancelled: boolean; timeoutId?: number; clipIndex: number }>>({});
 
   const stopJobPolling = useCallback((jobId?: string) => {
@@ -144,6 +145,24 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
 
       const previousId = currentDownloadIdRef.current;
       if (previousId) {
+        const previousVideoId = currentDownloadVideoIdRef.current;
+        if (selectedVideo && previousVideoId === selectedVideo.id) {
+          try {
+            const existing = await fetchDownloadStatus(previousId);
+            if (downloadRequestSeqRef.current !== requestId) {
+              return;
+            }
+            if (!["failed", "cancelled"].includes(existing.status)) {
+              currentDownloadIdRef.current = existing.id;
+              currentDownloadVideoIdRef.current = selectedVideo.id;
+              setDownloadId(existing.id);
+              setDownloadStatus(existing.status);
+              return;
+            }
+          } catch (error) {
+            console.warn("[shorts] failed to refresh existing download", error);
+          }
+        }
         try {
           await cancelShortDownload(previousId, true);
         } catch (error) {
@@ -153,6 +172,7 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
           return;
         }
         currentDownloadIdRef.current = null;
+        currentDownloadVideoIdRef.current = null;
         setDownloadId(null);
         setDownloadStatus(null);
       }
@@ -164,10 +184,15 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
       try {
         const download = await initiateShortDownload(selectedVideo.id);
         if (downloadRequestSeqRef.current !== requestId) {
-          await cancelShortDownload(download.id, true).catch(() => undefined);
+          const isCurrentDownload =
+            currentDownloadIdRef.current !== null && currentDownloadIdRef.current === download.id;
+          if (!isCurrentDownload) {
+            await cancelShortDownload(download.id, true).catch(() => undefined);
+          }
           return;
         }
         currentDownloadIdRef.current = download.id;
+        currentDownloadVideoIdRef.current = selectedVideo.id;
         setDownloadId(download.id);
         setDownloadStatus(download.status);
       } catch (error) {
@@ -224,6 +249,8 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
       if (currentId) {
         cancelShortDownload(currentId, true).catch(() => undefined);
       }
+      currentDownloadIdRef.current = null;
+      currentDownloadVideoIdRef.current = null;
     };
   }, [stopJobPolling]);
 

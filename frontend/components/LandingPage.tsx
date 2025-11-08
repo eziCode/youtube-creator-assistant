@@ -17,7 +17,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
       <header className="absolute top-0 left-0 w-full z-10 p-4 md:p-6">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 bg-indigo-100 rounded-full text-indigo-600"><RobotIcon /></span>
+            <span className="p-1.5 bg-indigo-100 rounded-full text-indigo-600 animate-bounce-slow"><RobotIcon /></span>
             <span className="font-bold text-lg">YouTube AI Assistant</span>
           </div>
           <nav>

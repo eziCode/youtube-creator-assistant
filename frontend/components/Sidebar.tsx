@@ -16,6 +16,7 @@ const navItems = [
   { id: 'analytics', label: 'Analytics & Insights', icon: <ChartBarIcon /> },
   { id: 'comments', label: 'Comments & Replies', icon: <MessageCircleIcon /> },
   { id: 'shorts', label: 'Shorts Generator', icon: <FilmIcon /> },
+  { id: 'videoIdeas', label: 'Video Ideas Generator', icon: <FilmIcon /> },
   { id: 'settings', label: 'Settings', icon: <SettingsIcon /> },
 ];
 
@@ -43,11 +44,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id as Tab)}
-            className={`flex items-center text-left p-2 rounded-md transition-colors duration-200 text-sm font-medium ${
-              activeTab === item.id 
-                ? 'bg-indigo-50 text-indigo-700' 
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
-            }`}
+            className={`flex items-center text-left p-2 rounded-md transition-colors duration-200 text-sm font-medium ${activeTab === item.id
+              ? 'bg-indigo-50 text-indigo-700'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+              }`}
           >
             {item.icon}
             {item.label}

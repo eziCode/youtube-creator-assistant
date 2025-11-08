@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import { google } from "googleapis";
+import User from "../models/User.js";
 
 dotenv.config();
 
@@ -32,6 +33,45 @@ const scopes = [
     "https://www.googleapis.com/auth/youtube.readonly",
 ];
 
+const buildFrontendUrl = (path) => {
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    return new URL(`${frontendUrl.replace(/\/$/, "")}${path}`);
+};
+
+const regenerateSession = (req) =>
+    new Promise((resolve, reject) => {
+        if (!req.session) {
+            reject(new Error("Session middleware not configured"));
+            return;
+        }
+
+        req.session.regenerate((err) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+
+            resolve();
+        });
+    });
+
+const saveSession = (req) =>
+    new Promise((resolve, reject) => {
+        if (!req.session) {
+            reject(new Error("Session middleware not configured"));
+            return;
+        }
+
+        req.session.save((err) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+
+            resolve();
+        });
+    });
+
 router.get("/google", (req, res) => {
     try {
         const url = oauth2Client.generateAuthUrl({
@@ -60,32 +100,131 @@ router.get("/google/callback", async (req, res) => {
         const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
         const { data: userInfo } = await oauth2.userinfo.get();
 
-        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+        if (!userInfo?.id) {
+            throw new Error("Unable to retrieve Google user id");
+        }
 
-        const url = new URL(`${frontendUrl.replace(/\/$/, "")}/auth/success`);
-        url.searchParams.set("access_token", tokens.access_token ?? "");
-        url.searchParams.set("refresh_token", tokens.refresh_token ?? "");
-        url.searchParams.set("scope", tokens.scope ?? "");
-        url.searchParams.set(
-            "expiry_date",
-            tokens.expiry_date ? String(tokens.expiry_date) : ""
-        );
-        url.searchParams.set("token_type", tokens.token_type ?? "");
-        url.searchParams.set("id_token", tokens.id_token ?? "");
-        url.searchParams.set("email", userInfo.email ?? "");
-        url.searchParams.set("name", userInfo.name ?? "");
+        let user = await User.findOne({ googleId: userInfo.id });
+        if (!user) {
+            user = new User({ googleId: userInfo.id });
+        }
 
-        res.redirect(url.toString());
+        user.email = userInfo.email ?? user.email;
+        user.name = userInfo.name ?? user.name;
+        user.picture = userInfo.picture ?? user.picture;
+        user.locale = userInfo.locale ?? user.locale;
+        user.lastLoginAt = new Date();
+
+        if (!user.tokens) {
+            user.tokens = {};
+        }
+
+        if (tokens.access_token) {
+            user.tokens.accessToken = tokens.access_token;
+        }
+
+        if (tokens.refresh_token) {
+            user.tokens.refreshToken = tokens.refresh_token;
+        }
+
+        if (tokens.scope) {
+            user.tokens.scope = tokens.scope;
+        }
+
+        if (tokens.token_type) {
+            user.tokens.tokenType = tokens.token_type;
+        }
+
+        if (tokens.expiry_date) {
+            user.tokens.expiryDate = new Date(tokens.expiry_date);
+        }
+
+        if (tokens.id_token) {
+            user.tokens.idToken = tokens.id_token;
+        }
+
+        await user.save();
+
+        const sessionUser = {
+            id: user._id.toString(),
+            googleId: user.googleId,
+            email: user.email,
+            name: user.name,
+            picture: user.picture,
+        };
+
+        const sessionTokens = {
+            accessToken: tokens.access_token ?? user.tokens?.accessToken ?? null,
+            refreshToken: tokens.refresh_token ?? user.tokens?.refreshToken ?? null,
+            scope: tokens.scope ?? user.tokens?.scope ?? null,
+            tokenType: tokens.token_type ?? user.tokens?.tokenType ?? null,
+            expiryDate:
+                tokens.expiry_date ??
+                (user.tokens?.expiryDate ? user.tokens.expiryDate.getTime() : null),
+        };
+
+        await regenerateSession(req);
+        req.session.user = sessionUser;
+        req.session.tokens = sessionTokens;
+        await saveSession(req);
+
+        const successUrl = buildFrontendUrl("/auth/success");
+        successUrl.searchParams.set("auth", "success");
+
+        res.redirect(successUrl.toString());
     } catch (err) {
         console.error("[auth] OAuth callback failed", err);
-        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-        const errorUrl = new URL(`${frontendUrl.replace(/\/$/, "")}/auth/error`);
+        const errorUrl = buildFrontendUrl("/auth/error");
         errorUrl.searchParams.set(
             "message",
             err instanceof Error ? err.message : "Unknown authentication error."
         );
         res.redirect(errorUrl.toString());
     }
+});
+
+router.get("/session", (req, res) => {
+    if (!req.session?.user) {
+        return res.status(200).json({ authenticated: false });
+    }
+
+    return res.status(200).json({
+        authenticated: true,
+        user: req.session.user,
+    });
+});
+
+router.post("/logout", async (req, res) => {
+    const sessionCookieName = req.app.get("sessionCookieName") || "connect.sid";
+    const sameSite = req.app.get("sessionCookieSameSite") || "lax";
+    const secure = Boolean(req.app.get("sessionCookieSecure"));
+
+    const clearCookie = () => {
+        res.clearCookie(sessionCookieName, {
+            httpOnly: true,
+            sameSite,
+            secure,
+            path: "/",
+        });
+    };
+
+    if (!req.session) {
+        clearCookie();
+        return res.status(200).json({ success: true });
+    }
+
+    req.session.tokens = undefined;
+    req.session.user = undefined;
+
+    req.session.destroy((err) => {
+        if (err) {
+            console.error("[auth] Failed to destroy session", err);
+            return res.status(500).json({ error: "Failed to log out" });
+        }
+
+        clearCookie();
+        return res.status(200).json({ success: true });
+    });
 });
 
 export default router;

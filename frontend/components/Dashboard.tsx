@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Tab, Tone, Video } from '../types';
+import { AuthenticatedUser, Tab, Tone, Video } from '../types';
 import { MOCK_VIDEOS } from '../constants';
 import Sidebar from './Sidebar';
 import AnalyticsTab from './AnalyticsTab';
@@ -7,7 +7,12 @@ import CommentsTab from './CommentsTab';
 import ShortsGeneratorTab from './ShortsGeneratorTab';
 import SettingsTab from './SettingsTab';
 
-const Dashboard: React.FC = () => {
+interface DashboardProps {
+  user: AuthenticatedUser | null;
+  onLogout: () => void;
+}
+
+const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState<Tab>('analytics');
   const [selectedVideo, setSelectedVideo] = useState<Video>(MOCK_VIDEOS[0]);
   const [tone, setTone] = useState<Tone>('Friendly');
@@ -34,6 +39,35 @@ const Dashboard: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold text-slate-800">YouTube AI Assistant</h1>
             <p className="text-sm text-slate-500">Hackathon MVP</p>
+          </div>
+          <div className="flex items-center gap-4">
+            {user && (
+              <div className="flex items-center gap-3">
+                {user.picture ? (
+                  <img
+                    src={user.picture}
+                    alt={user.name ?? user.email}
+                    className="h-10 w-10 rounded-full border border-slate-200 object-cover"
+                  />
+                ) : (
+                  <div className="h-10 w-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold">
+                    {(user.name ?? user.email ?? '?').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-slate-700">
+                    {user.name ?? user.email}
+                  </p>
+                  <p className="text-xs text-slate-500">{user.email}</p>
+                </div>
+              </div>
+            )}
+            <button
+              onClick={onLogout}
+              className="px-3 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-md hover:bg-slate-100 transition-colors"
+            >
+              Sign out
+            </button>
           </div>
         </header>
 

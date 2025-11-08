@@ -18,6 +18,65 @@ import authRouter from "./routes/auth.js";
 dotenv.config();
 
 const app = express();
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const formatDate = (date) => {
+	if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+		return null;
+	}
+	return date.toISOString().slice(0, 10);
+};
+
+const buildCustomDateRange = (startIso, endIso) => {
+	if (typeof startIso !== "string" || typeof endIso !== "string") {
+		return null;
+	}
+
+	const start = new Date(`${startIso}T00:00:00Z`);
+	const end = new Date(`${endIso}T23:59:59Z`);
+
+	if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+		return null;
+	}
+
+	if (start > end) {
+		return null;
+	}
+
+	const normalizedStart = new Date(startIso);
+	const normalizedEnd = new Date(endIso);
+	normalizedStart.setUTCHours(0, 0, 0, 0);
+	normalizedEnd.setUTCHours(0, 0, 0, 0);
+
+	const diffDays = Math.floor((normalizedEnd.getTime() - normalizedStart.getTime()) / DAY_MS) + 1;
+
+	if (!Number.isFinite(diffDays) || diffDays <= 0) {
+		return null;
+	}
+
+	const previousEnd = new Date(normalizedStart.getTime() - DAY_MS);
+	const previousStart = new Date(previousEnd.getTime() - (diffDays - 1) * DAY_MS);
+
+	const formattedCurrentStart = formatDate(normalizedStart);
+	const formattedCurrentEnd = formatDate(normalizedEnd);
+	const formattedPreviousStart = formatDate(previousStart);
+	const formattedPreviousEnd = formatDate(previousEnd);
+
+	if (!formattedCurrentStart || !formattedCurrentEnd || !formattedPreviousStart || !formattedPreviousEnd) {
+		return null;
+	}
+
+	return {
+		current: {
+			startDate: formattedCurrentStart,
+			endDate: formattedCurrentEnd,
+		},
+		previous: {
+			startDate: formattedPreviousStart,
+			endDate: formattedPreviousEnd,
+		},
+	};
+};
 
 const FRONTEND_ORIGIN = process.env.FRONTEND_URL || "http://localhost:5173";
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -143,8 +202,17 @@ const registerRoutes = () => {
 
 		const channelId = req.session?.user?.channelId;
 		const rangeDaysRaw = req.query?.rangeDays;
+		const startDateRaw = req.query?.startDate;
+		const endDateRaw = req.query?.endDate;
+		const hasCustomRange = typeof startDateRaw === "string" && typeof endDateRaw === "string";
+		const dateRange = hasCustomRange ? buildCustomDateRange(startDateRaw, endDateRaw) : undefined;
+
+		if (hasCustomRange && !dateRange) {
+			return res.status(400).json({ error: "Invalid custom date range" });
+		}
+
 		const rangeDays =
-			rangeDaysRaw && Number.isFinite(Number(rangeDaysRaw))
+			!hasCustomRange && rangeDaysRaw && Number.isFinite(Number(rangeDaysRaw))
 				? Number(rangeDaysRaw)
 				: undefined;
 
@@ -157,6 +225,7 @@ const registerRoutes = () => {
 				channelId,
 				tokens: req.session.tokens,
 				rangeDays,
+				dateRange,
 			});
 
 			if (req.session && result.updatedTokens) {
@@ -188,8 +257,17 @@ const registerRoutes = () => {
 		const channelId = req.session?.user?.channelId;
 		const { videoId } = req.query;
 		const rangeDaysRaw = req.query?.rangeDays;
+		const startDateRaw = req.query?.startDate;
+		const endDateRaw = req.query?.endDate;
+		const hasCustomRange = typeof startDateRaw === "string" && typeof endDateRaw === "string";
+		const dateRange = hasCustomRange ? buildCustomDateRange(startDateRaw, endDateRaw) : undefined;
+
+		if (hasCustomRange && !dateRange) {
+			return res.status(400).json({ error: "Invalid custom date range" });
+		}
+
 		const rangeDays =
-			rangeDaysRaw && Number.isFinite(Number(rangeDaysRaw))
+			!hasCustomRange && rangeDaysRaw && Number.isFinite(Number(rangeDaysRaw))
 				? Number(rangeDaysRaw)
 				: undefined;
 
@@ -207,6 +285,7 @@ const registerRoutes = () => {
 				videoId,
 				tokens: req.session.tokens,
 				rangeDays,
+				dateRange,
 			});
 
 			if (req.session && result.updatedTokens) {

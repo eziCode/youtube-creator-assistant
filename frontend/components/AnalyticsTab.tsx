@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChannelAnalyticsOverview, Video, VideoAnalyticsOverview } from '../types';
+import {
+  AnalyticsTotals,
+  ChannelAnalyticsOverview,
+  Video,
+  VideoAnalyticsOverview,
+} from '../types';
 import Card from './Card';
 
 interface AnalyticsTabProps {
@@ -15,6 +20,9 @@ interface AnalyticsTabProps {
   videoAnalyticsError: string | null;
   analyticsRangeDays: number;
   onChangeRangeDays: (days: number) => void;
+  customStartDate?: string;
+  customEndDate?: string;
+  onChangeCustomDateRange?: (startDate: string, endDate: string) => void;
 }
 
 const formatNumber = (value: number, options?: Intl.NumberFormatOptions) =>
@@ -41,6 +49,71 @@ const formatDuration = (seconds: number) => {
 const getDeltaBadgeClass = (delta: number | undefined) => {
   if (delta === undefined || delta === 0) return 'bg-slate-100 text-slate-600';
   return delta > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
+};
+
+const formatIsoDate = (iso?: string | null) => {
+  if (!iso) return '—';
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) {
+    return iso;
+  }
+  return parsed.toLocaleDateString();
+};
+
+const filterAnalyticsByRange = (
+  analytics: ChannelAnalyticsOverview | VideoAnalyticsOverview | null,
+  startIso: string,
+  endIso: string
+): typeof analytics => {
+  if (!analytics) return analytics;
+
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+    return analytics;
+  }
+
+  const filteredDaily = (analytics.daily ?? []).filter((entry) => {
+    const entryDate = entry.date ? new Date(entry.date) : null;
+    if (!entryDate || Number.isNaN(entryDate.getTime())) return false;
+    return entryDate >= start && entryDate <= end;
+  });
+
+  const baseTotals = analytics.totals;
+  const summedTotals =
+    baseTotals &&
+    (Object.keys(baseTotals) as Array<keyof typeof baseTotals>).reduce<AnalyticsTotals>(
+      (acc, key) => {
+        const metric = baseTotals[key];
+        const totalValue = filteredDaily.reduce<number>((accumulator, entry) => {
+          const raw = entry[key as keyof typeof entry];
+          const numeric = typeof raw === 'number' ? raw : Number(raw ?? 0);
+          return accumulator + (Number.isFinite(numeric) ? numeric : 0);
+        }, 0);
+
+        acc[key] = {
+          value: totalValue,
+          delta: metric?.delta ?? 0,
+          deltaRatio: metric?.deltaRatio ?? null,
+        };
+
+        return acc;
+      },
+      {} as AnalyticsTotals
+    );
+
+  return {
+    ...analytics,
+    totals: summedTotals ?? baseTotals,
+    daily: filteredDaily,
+    period: {
+      current: {
+        startDate: startIso,
+        endDate: endIso,
+      },
+      previous: null,
+    },
+  };
 };
 
 const formatWatchTime = (minutes: number) => {
@@ -73,8 +146,39 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   videoAnalyticsError,
   analyticsRangeDays,
   onChangeRangeDays,
+  customStartDate,
+  customEndDate,
+  onChangeCustomDateRange,
 }) => {
   const [viewMode, setViewMode] = useState<'channel' | 'video'>('channel');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempStartDate, setTempStartDate] = useState(customStartDate ?? '');
+  const [tempEndDate, setTempEndDate] = useState(customEndDate ?? '');
+  const [isCustomRangeActive, setIsCustomRangeActive] = useState(
+    analyticsRangeDays === 0 && Boolean(customStartDate && customEndDate)
+  );
+
+  const todayIso = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const offsetIso = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 10);
+    return offsetIso;
+  }, []);
+
+  const activeRange = useMemo(() => {
+    if (!isCustomRangeActive || !customStartDate || !customEndDate) return null;
+    return { start: customStartDate, end: customEndDate };
+  }, [isCustomRangeActive, customStartDate, customEndDate]);
+
+  const isCustomRangeReady = useMemo(() => {
+    if (!tempStartDate || !tempEndDate) return false;
+    const start = new Date(tempStartDate);
+    const end = new Date(tempEndDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+    return start <= end;
+  }, [tempStartDate, tempEndDate]);
 
   useEffect(() => {
     if (!selectedVideo && viewMode === 'video') {
@@ -82,12 +186,58 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     }
   }, [selectedVideo, viewMode]);
 
+  useEffect(() => {
+    setTempStartDate(customStartDate ?? '');
+    setTempEndDate(customEndDate ?? '');
+  }, [customStartDate, customEndDate]);
+
+  useEffect(() => {
+    setIsCustomRangeActive(analyticsRangeDays === 0 && Boolean(customStartDate && customEndDate));
+  }, [analyticsRangeDays, customStartDate, customEndDate]);
+
+  const canUseCustomRange = typeof onChangeCustomDateRange === 'function';
+
+  const handlePresetClick = useCallback(
+    (days: number) => {
+      setShowDatePicker(false);
+      setIsCustomRangeActive(false);
+      onChangeRangeDays(days);
+    },
+    [onChangeRangeDays]
+  );
+
+  const handleApplyCustomRange = useCallback(() => {
+    if (!isCustomRangeReady) {
+      return;
+    }
+
+    if (!canUseCustomRange) {
+      setShowDatePicker(false);
+      return;
+    }
+
+    onChangeCustomDateRange?.(tempStartDate, tempEndDate);
+    setIsCustomRangeActive(true);
+    onChangeRangeDays(0);
+    setShowDatePicker(false);
+  }, [canUseCustomRange, isCustomRangeReady, onChangeCustomDateRange, tempStartDate, tempEndDate, onChangeRangeDays]);
+
   const isLoadingChannel = isLoadingVideos || isLoadingAnalytics;
 
-  const totals = analytics?.totals;
-  const dailySeries = analytics?.daily ?? [];
-  const currentPeriod = analytics?.period.current;
-  const previousPeriod = analytics?.period.previous;
+  const filteredAnalytics = useMemo(() => {
+    if (!activeRange) return analytics;
+    return filterAnalyticsByRange(analytics, activeRange.start, activeRange.end) as ChannelAnalyticsOverview;
+  }, [analytics, activeRange]);
+
+  const filteredVideoAnalytics = useMemo(() => {
+    if (!activeRange) return videoAnalytics;
+    return filterAnalyticsByRange(videoAnalytics, activeRange.start, activeRange.end) as VideoAnalyticsOverview;
+  }, [videoAnalytics, activeRange]);
+
+  const totals = filteredAnalytics?.totals;
+  const dailySeries = filteredAnalytics?.daily ?? [];
+  const currentPeriod = filteredAnalytics?.period.current;
+  const previousPeriod = filteredAnalytics?.period.previous;
 
   const channelHeroMetrics = useMemo(() => {
     if (!totals) return [];
@@ -148,7 +298,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   }, [dailySeries]);
 
 
-  const hasAnalyticsData = Boolean(analytics && totals);
+  const hasAnalyticsData = Boolean(filteredAnalytics && totals);
   const showEmptyState =
     !isLoadingChannel && !hasAnalyticsData && !analyticsError && !videoError;
 
@@ -156,7 +306,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     if (!totals) return [];
     const insights: Array<{ title: string; detail: string }> = [];
 
-    if (totals.views) {
+    if (totals.views && totals.views.delta !== null && totals.views.deltaRatio !== null) {
       insights.push({
         title: 'View Momentum',
         detail: `Views ${totals.views.delta >= 0 ? 'grew' : 'declined'} by ${formatPercent(
@@ -165,7 +315,11 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       });
     }
 
-    if (totals.averageViewDuration) {
+    if (
+      totals.averageViewDuration &&
+      totals.averageViewDuration.delta !== null &&
+      totals.averageViewDuration.deltaRatio !== null
+    ) {
       insights.push({
         title: 'Retention Health',
         detail: `Average viewers stayed for ${formatDuration(
@@ -174,7 +328,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       });
     }
 
-    if (totals.netSubscribers) {
+    if (totals.netSubscribers && totals.netSubscribers.delta !== null) {
       insights.push({
         title: 'Subscriber Impact',
         detail: `Net subscribers ${totals.netSubscribers.delta >= 0 ? 'increased' : 'decreased'} by ${
@@ -186,10 +340,10 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     return insights;
   }, [totals]);
 
-  const selectedVideoTotals = videoAnalytics?.totals;
-  const videoDailySeries = videoAnalytics?.daily ?? [];
-  const videoPeriod = videoAnalytics?.period?.current;
-  const videoPreviousPeriod = videoAnalytics?.period?.previous;
+  const selectedVideoTotals = filteredVideoAnalytics?.totals;
+  const videoDailySeries = filteredVideoAnalytics?.daily ?? [];
+  const videoPeriod = filteredVideoAnalytics?.period?.current;
+  const videoPreviousPeriod = filteredVideoAnalytics?.period?.previous;
 
   const videoHeroMetrics = useMemo(() => {
     if (!selectedVideoTotals) return [];
@@ -282,20 +436,22 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           <p className="text-sm text-slate-500 mt-1">
             {isLoadingChannel
               ? 'Syncing latest stats…'
+              : isCustomRangeActive && customStartDate && customEndDate
+              ? `Reporting ${formatIsoDate(customStartDate)} → ${formatIsoDate(customEndDate)}`
               : hasAnalyticsData && currentPeriod
-              ? `Reporting ${currentPeriod.startDate} → ${currentPeriod.endDate}`
+              ? `Reporting ${formatIsoDate(currentPeriod.startDate)} → ${formatIsoDate(currentPeriod.endDate)}`
               : `Tracking ${videos.length} video${videos.length === 1 ? '' : 's'}`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 p-1">
             {[7, 28, 90].map((days) => {
-              const isActive = analyticsRangeDays === days;
+              const isActive = !isCustomRangeActive && analyticsRangeDays === days;
               return (
                 <button
                   key={days}
                   type="button"
-                  onClick={() => onChangeRangeDays(days)}
+                  onClick={() => handlePresetClick(days)}
                   className={`px-3 py-1 text-xs font-semibold rounded-full transition ${
                     isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                   }`}
@@ -305,6 +461,16 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={() => setShowDatePicker(true)}
+              className={`px-3 py-1 text-xs font-semibold rounded-full transition ${
+                isCustomRangeActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+              aria-pressed={isCustomRangeActive}
+            >
+              Custom
+            </button>
           </div>
           <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 p-1">
             {([
@@ -334,6 +500,72 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           </div>
         </div>
       </div>
+
+      {showDatePicker && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+          onClick={() => setShowDatePicker(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-slate-900">Select custom range</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Pick a start and end date to drill into a specific window.
+            </p>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+                Start date
+                <input
+                  type="date"
+                  value={tempStartDate}
+                  max={todayIso}
+                  onChange={(event) => setTempStartDate(event.target.value)}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+                End date
+                <input
+                  type="date"
+                  value={tempEndDate}
+                  min={tempStartDate || undefined}
+                  max={todayIso}
+                  onChange={(event) => setTempEndDate(event.target.value)}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+            </div>
+
+            {tempStartDate && tempEndDate && !isCustomRangeReady && (
+              <p className="mt-2 text-xs font-medium text-rose-600">
+                Start date must be on or before the end date.
+              </p>
+            )}
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDatePicker(false)}
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyCustomRange}
+                disabled={!isCustomRangeReady}
+                className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                Apply range
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {viewMode === 'channel' && (analyticsError || videoError) && (
         <div className="p-4 border border-rose-200 bg-rose-50 text-rose-700 text-sm rounded-md">
@@ -380,22 +612,28 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                       <div className="text-xs uppercase tracking-wide text-slate-500">{metric.label}</div>
                       <div className="text-2xl font-semibold text-slate-900">{metric.value}</div>
                       <div className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
-                        <span
-                          className={`px-2 py-1 rounded-full ${
-                            (metric.delta ?? 0) > 0
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : (metric.delta ?? 0) < 0
-                              ? 'bg-rose-100 text-rose-700'
-                              : 'bg-slate-100 text-slate-600'
-                          }`}
-                        >
-                          {metric.delta !== undefined && metric.delta !== null
-                            ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
-                                metric.deltaRatio
-                              )}`
-                            : '—'}
+                        {metric.delta !== undefined && metric.delta !== null ? (
+                          <span
+                            className={`px-2 py-1 rounded-full ${
+                              (metric.delta ?? 0) > 0
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : (metric.delta ?? 0) < 0
+                                ? 'bg-rose-100 text-rose-700'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {metric.delta !== undefined && metric.delta !== null
+                              ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
+                                  metric.deltaRatio
+                                )}`
+                              : '—'}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-500">—</span>
+                        )}
+                        <span className="text-slate-500">
+                          {previousPeriod ? 'vs previous' : isCustomRangeActive ? 'custom range' : 'current window'}
                         </span>
-                        <span className="text-slate-500">vs previous</span>
                       </div>
                     </div>
                   ))}
@@ -412,10 +650,14 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             description={
               isLoadingChannel ? (
                 <div className="skeleton skeleton-sm w-52" />
+              ) : isCustomRangeActive && customStartDate && customEndDate ? (
+                <span>
+                  Custom range {formatIsoDate(customStartDate)} → {formatIsoDate(customEndDate)}
+                </span>
               ) : previousPeriod ? (
                 <span>
-                  Comparing {currentPeriod?.startDate} → {currentPeriod?.endDate} against {previousPeriod.startDate} →{' '}
-                  {previousPeriod.endDate}
+                  Comparing {formatIsoDate(currentPeriod?.startDate)} → {formatIsoDate(currentPeriod?.endDate)} against{' '}
+                  {formatIsoDate(previousPeriod.startDate)} → {formatIsoDate(previousPeriod.endDate)}
                 </span>
               ) : undefined
             }
@@ -432,15 +674,22 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                       <>
                         <div className="text-2xl font-semibold text-slate-800">{format(metric.value)}</div>
                         <div className="flex items-center gap-2 text-xs">
-                          <span
-                            className={`inline-flex items-center px-2 py-1 rounded-full font-medium ${getDeltaBadgeClass(
-                              metric.delta
-                            )}`}
-                          >
-                            {metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'}{' '}
-                            {formatPercent(metric.deltaRatio)}
+                          {metric.delta !== undefined && metric.delta !== null ? (
+                            <span
+                              className={`inline-flex items-center px-2 py-1 rounded-full font-medium ${getDeltaBadgeClass(
+                                metric.delta
+                              )}`}
+                            >
+                              {metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} {formatPercent(metric.deltaRatio)}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full font-medium bg-slate-100 text-slate-500">
+                              —
+                            </span>
+                          )}
+                          <span className="text-slate-500">
+                            {previousPeriod ? 'vs previous' : isCustomRangeActive ? 'custom range' : 'current window'}
                           </span>
-                          <span className="text-slate-500">vs previous</span>
                         </div>
                       </>
                     ) : (
@@ -453,7 +702,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           </Card>
 
           <Card title="Engagement Highlights">
-            {isLoadingChannel && highlightInsights.length === 0 ? (
+            {isLoadingChannel ? (
               <div className="space-y-3">
                 <div className="skeleton skeleton-sm w-48" />
                 <div className="skeleton skeleton-sm w-56" />
@@ -488,9 +737,13 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                     <span className="font-medium text-slate-500">{selectedVideo.title}</span>
                     {isLoadingVideoAnalytics ? (
                       <div className="skeleton skeleton-xs w-32" />
+                    ) : isCustomRangeActive && customStartDate && customEndDate ? (
+                      <span className="text-slate-500">
+                        {formatIsoDate(customStartDate)} → {formatIsoDate(customEndDate)}
+                      </span>
                     ) : videoPeriod ? (
                       <span className="text-slate-500">
-                        {videoPeriod.startDate} → {videoPeriod.endDate}
+                        {formatIsoDate(videoPeriod.startDate)} → {formatIsoDate(videoPeriod.endDate)}
                       </span>
                     ) : null}
                   </div>
@@ -656,12 +909,17 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
                         {videoMetricsConfig.map(({ key, label, format }) => {
                           const metric = selectedVideoTotals[key];
+                          const hasDelta = metric.delta !== undefined && metric.delta !== null;
                           return (
                             <div key={key} className="space-y-2">
                               <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
                               <div className="text-lg font-semibold text-slate-800">{format(metric.value)}</div>
                               <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                                {metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} {formatPercent(metric.deltaRatio)}
+                                {hasDelta
+                                  ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
+                                      metric.deltaRatio
+                                    )}`
+                                  : '—'}
                               </div>
                             </div>
                           );

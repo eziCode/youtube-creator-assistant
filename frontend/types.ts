@@ -7,11 +7,28 @@ export type CommentStatus = "pending" | "approved" | "auto-replied";
 export interface Video {
   id: string;
   title: string;
-  views: number;
-  watchTime: number; // in hours
-  retention: number; // as a decimal, e.g., 0.62 for 62%
-  likes: number;
-  commentsCount: number;
+  description?: string | null;
+  channelId?: string | null;
+  channelTitle?: string | null;
+  publishedAt?: string | null;
+  thumbnails?: Record<
+    string,
+    {
+      url?: string;
+      width?: number;
+      height?: number;
+    }
+  >;
+  duration?: string | null;
+  tags?: string[];
+  liveBroadcastContent?: string | null;
+  defaultLanguage?: string | null;
+  defaultAudioLanguage?: string | null;
+  viewCount?: number | null;
+  likeCount?: number | null;
+  commentCount?: number | null;
+  favoriteCount?: number | null;
+  categoryId?: string | null;
 }
 
 export interface Comment {
@@ -36,4 +53,73 @@ export interface AuthenticatedUser {
   email: string;
   name?: string | null;
   picture?: string | null;
+  channelId?: string | null;
+  channelTitle?: string | null;
+}
+
+export interface AnalyticsValue {
+  value: number;
+  delta: number;
+  deltaRatio: number | null;
+}
+
+export interface AnalyticsTotals {
+  views: AnalyticsValue;
+  estimatedMinutesWatched: AnalyticsValue;
+  averageViewDuration: AnalyticsValue;
+  averageViewPercentage: AnalyticsValue;
+  likes: AnalyticsValue;
+  comments: AnalyticsValue;
+  shares: AnalyticsValue;
+  subscribersGained: AnalyticsValue;
+  subscribersLost: AnalyticsValue;
+  netSubscribers: AnalyticsValue;
+  [key: string]: AnalyticsValue;
+}
+
+export interface AnalyticsPeriod {
+  startDate: string;
+  endDate: string;
+}
+
+export interface AnalyticsDailyEntry {
+  date: string;
+  views?: number;
+  estimatedMinutesWatched?: number;
+  averageViewDuration?: number;
+  averageViewPercentage?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  subscribersGained?: number;
+  subscribersLost?: number;
+  [key: string]: string | number | undefined;
+}
+
+export interface AnalyticsVideoPerformance {
+  videoId: string;
+  views?: number;
+  estimatedMinutesWatched?: number;
+  averageViewDuration?: number;
+  averageViewPercentage?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  subscribersGained?: number;
+  subscribersLost?: number;
+  [key: string]: string | number | undefined;
+}
+
+export interface ChannelAnalyticsOverview {
+  period: {
+    current: AnalyticsPeriod;
+    previous: AnalyticsPeriod;
+  };
+  totals: AnalyticsTotals;
+  daily: AnalyticsDailyEntry[];
+  topVideos: AnalyticsVideoPerformance[];
+}
+
+export interface VideoAnalyticsOverview extends ChannelAnalyticsOverview {
+  videoId: string;
 }

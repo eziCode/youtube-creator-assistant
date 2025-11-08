@@ -20,7 +20,8 @@
     "express": "^5.1.0",
     "express-session": "^1.18.2",
     "googleapis": "^165.0.0",
-    "mongoose": "^8.19.3"
+    "mongoose": "^8.19.3",
+    "openai": "^6.8.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

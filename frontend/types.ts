@@ -49,6 +49,17 @@ export interface ShortClip {
   hook: string;
 }
 
+export type ShortDownloadStatus = "pending" | "downloading" | "completed" | "cancelled" | "failed";
+
+export interface ShortDownload {
+  id: string;
+  videoId: string;
+  status: ShortDownloadStatus;
+  filePath?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+}
+
 export type ShortPublicationStatus = "queued" | "processing" | "completed" | "failed";
 
 export interface ShortPublicationResult {

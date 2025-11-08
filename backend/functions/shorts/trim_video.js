@@ -83,13 +83,13 @@ const resolveClipWindow = (segment) => {
 	throw new Error("Each segment must be a tuple [start, end] or an object with start/end properties.");
 };
 
-export async function trimVideo(inputPath, segments, { outputDir = DEFAULT_OUTPUT_DIR, overwrite = true } = {}) {
+export async function trimVideo(inputPath, segment, { outputDir = DEFAULT_OUTPUT_DIR, overwrite = true } = {}) {
 	if (typeof inputPath !== "string" || !inputPath.trim()) {
 		throw new Error("A valid inputPath string is required.");
 	}
 
-	if (!Array.isArray(segments) || segments.length === 0) {
-		throw new Error("segments must be a non-empty array of [start, end] tuples.");
+	if (segment == null) {
+		throw new Error("segment is required and must be a [start, end] tuple.");
 	}
 
 	const resolvedInputPath = path.resolve(inputPath);
@@ -100,47 +100,40 @@ export async function trimVideo(inputPath, segments, { outputDir = DEFAULT_OUTPU
 	const { name: baseName, ext } = path.parse(resolvedInputPath);
 	const extension = ext || ".mp4";
 
-	const clips = [];
-
 	const ffmpegCommand = await resolveFfmpegCommand();
 
-	for (let index = 0; index < segments.length; index += 1) {
-		const segment = segments[index];
-		const [rawStart, rawEnd] = resolveClipWindow(segment);
+	const [rawStart, rawEnd] = resolveClipWindow(segment);
 
-		if (!Number.isFinite(rawStart) || !Number.isFinite(rawEnd)) {
-			throw new Error(`Segment at index ${index} contains non-numeric timestamps.`);
-		}
-
-		if (rawStart < 0 || rawEnd <= rawStart) {
-			throw new Error(`Segment at index ${index} must have start >= 0 and end > start.`);
-		}
-
-		const durationSeconds = rawEnd - rawStart;
-
-		const startTimestamp = formatTimestamp(rawStart);
-		const durationTimestamp = formatTimestamp(durationSeconds);
-
-		const clipId = crypto.randomUUID().slice(0, 8);
-		const filename = `${baseName}_clip_${index + 1}_${clipId}${extension}`;
-		const outputPath = path.join(resolvedOutputDir, filename);
-
-		const args = overwrite ? ["-y"] : ["-n"];
-
-		if (rawStart > 0) {
-			args.push("-ss", startTimestamp);
-		}
-
-		args.push("-i", resolvedInputPath, "-t", durationTimestamp, "-c", "copy", outputPath);
-
-		try {
-			await execFileAsync(ffmpegCommand, args);
-		} catch (error) {
-			throw new Error(`FFmpeg failed while creating clip ${index + 1}: ${error.message}`);
-		}
-
-		clips.push(outputPath);
+	if (!Number.isFinite(rawStart) || !Number.isFinite(rawEnd)) {
+		throw new Error("Segment contains non-numeric timestamps.");
 	}
 
-	return clips;
+	if (rawStart < 0 || rawEnd <= rawStart) {
+		throw new Error("Segment must have start >= 0 and end > start.");
+	}
+
+	const durationSeconds = rawEnd - rawStart;
+
+	const startTimestamp = formatTimestamp(rawStart);
+	const durationTimestamp = formatTimestamp(durationSeconds);
+
+	const clipId = crypto.randomUUID().slice(0, 8);
+	const filename = `${baseName}_clip_${clipId}${extension}`;
+	const outputPath = path.join(resolvedOutputDir, filename);
+
+	const args = overwrite ? ["-y"] : ["-n"];
+
+	if (rawStart > 0) {
+		args.push("-ss", startTimestamp);
+	}
+
+	args.push("-i", resolvedInputPath, "-t", durationTimestamp, "-c", "copy", outputPath);
+
+	try {
+		await execFileAsync(ffmpegCommand, args);
+	} catch (error) {
+		throw new Error(`FFmpeg failed while creating clip: ${error.message}`);
+	}
+
+	return outputPath;
 }

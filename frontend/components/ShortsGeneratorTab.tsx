@@ -1,11 +1,36 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { ShortClip, ShortPublicationResult, Video } from "../types";
-import { fetchShortIdeas, publishShortClip } from "../services/shortsService";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ShortClip,
+  ShortDownloadStatus,
+  ShortPublicationResult,
+  Video,
+} from "../types";
+import {
+  fetchShortIdeas,
+  publishShortClip,
+  initiateShortDownload,
+  cancelShortDownload,
+  fetchDownloadStatus,
+  fetchShortPublicationStatus,
+} from "../services/shortsService";
 import Card from "./Card";
 
 interface ShortsGeneratorTabProps {
   selectedVideo: Video | null;
 }
+
+const DOWNLOAD_STATUS_LABELS: Record<ShortDownloadStatus, string> = {
+  pending: "Preparing download…",
+  downloading: "Downloading video…",
+  completed: "Download ready",
+  cancelled: "Download cancelled",
+  failed: "Download failed",
+};
+
+const getDownloadStatusLabel = (status: ShortDownloadStatus | null) => {
+  if (!status) return null;
+  return DOWNLOAD_STATUS_LABELS[status] ?? status;
+};
 
 const formatSeconds = (value: number) => {
   if (!Number.isFinite(value) || value < 0) {
@@ -23,13 +48,184 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
   const [publishingIndex, setPublishingIndex] = useState<number | null>(null);
   const [publishResults, setPublishResults] = useState<Record<number, ShortPublicationResult>>({});
   const [notification, setNotification] = useState<string | null>(null);
+  const [downloadId, setDownloadId] = useState<string | null>(null);
+  const [downloadStatus, setDownloadStatus] = useState<ShortDownloadStatus | null>(null);
+
+  const downloadRequestSeqRef = useRef(0);
+  const currentDownloadIdRef = useRef<string | null>(null);
+  const jobPollsRef = useRef<Record<string, { cancelled: boolean; timeoutId?: number; clipIndex: number }>>({});
+
+  const stopJobPolling = useCallback((jobId?: string) => {
+    if (jobId) {
+      const poll = jobPollsRef.current[jobId];
+      if (poll) {
+        poll.cancelled = true;
+        if (poll.timeoutId) {
+          window.clearTimeout(poll.timeoutId);
+        }
+        delete jobPollsRef.current[jobId];
+      }
+      return;
+    }
+    Object.keys(jobPollsRef.current).forEach((id) => stopJobPolling(id));
+  }, []);
+
+  const scheduleJobPoll = useCallback(
+    (jobId: string, clipIndex: number, attempt = 0) => {
+    const poll = jobPollsRef.current[jobId];
+    if (!poll || poll.cancelled) {
+      return;
+    }
+
+    const targetClipIndex = poll.clipIndex ?? clipIndex;
+    const delay = Math.min(4000, 1000 + attempt * 500);
+    poll.timeoutId = window.setTimeout(async () => {
+      if (poll.cancelled) {
+        return;
+      }
+
+      try {
+        const publication = await fetchShortPublicationStatus(jobId);
+        setPublishResults((prev) => ({
+          ...prev,
+          [targetClipIndex]: publication,
+        }));
+
+        if (publication.message) {
+          setNotification(publication.message);
+        }
+
+        if (publication.status === "completed" || publication.status === "failed") {
+          stopJobPolling(jobId);
+          return;
+        }
+
+        scheduleJobPoll(jobId, targetClipIndex, attempt + 1);
+      } catch (error) {
+        console.error("[shorts] failed to fetch job status", error);
+        if (attempt < 5) {
+          scheduleJobPoll(jobId, targetClipIndex, attempt + 1);
+        } else {
+          setNotification(
+            error instanceof Error ? error.message : "Unable to refresh short status. Please try again later."
+          );
+          stopJobPolling(jobId);
+        }
+      }
+    }, delay);
+    },
+    [stopJobPolling]
+  );
+
+  const startJobPolling = useCallback(
+    (jobId: string, clipIndex: number) => {
+    if (!jobId) return;
+    stopJobPolling(jobId);
+    jobPollsRef.current[jobId] = { cancelled: false, clipIndex };
+    scheduleJobPoll(jobId, clipIndex);
+    },
+    [scheduleJobPoll, stopJobPolling]
+  );
 
   useEffect(() => {
     setShorts([]);
     setNotification(null);
     setPublishResults({});
     setPublishingIndex(null);
+    setDownloadStatus(null);
+    setDownloadId(null);
+    stopJobPolling();
+  }, [selectedVideo?.id, stopJobPolling]);
+
+  useEffect(() => {
+    const runDownloadLifecycle = async () => {
+      downloadRequestSeqRef.current += 1;
+      const requestId = downloadRequestSeqRef.current;
+
+      const previousId = currentDownloadIdRef.current;
+      if (previousId) {
+        try {
+          await cancelShortDownload(previousId, true);
+        } catch (error) {
+          console.warn("[shorts] failed to cancel previous download", error);
+        }
+        if (downloadRequestSeqRef.current !== requestId) {
+          return;
+        }
+        currentDownloadIdRef.current = null;
+        setDownloadId(null);
+        setDownloadStatus(null);
+      }
+
+      if (!selectedVideo) {
+        return;
+      }
+
+      try {
+        const download = await initiateShortDownload(selectedVideo.id);
+        if (downloadRequestSeqRef.current !== requestId) {
+          await cancelShortDownload(download.id, true).catch(() => undefined);
+          return;
+        }
+        currentDownloadIdRef.current = download.id;
+        setDownloadId(download.id);
+        setDownloadStatus(download.status);
+      } catch (error) {
+        console.error("[shorts] failed to initiate download", error);
+        if (error instanceof Error) {
+          setNotification(error.message);
+        } else {
+          setNotification("Failed to start video download. Please retry.");
+        }
+        setDownloadId(null);
+        setDownloadStatus(null);
+      }
+    };
+
+    runDownloadLifecycle();
+
+    return () => {
+      downloadRequestSeqRef.current += 1;
+    };
   }, [selectedVideo?.id]);
+
+  useEffect(() => {
+    if (!downloadId) {
+      return;
+    }
+    if (downloadStatus && ["completed", "failed", "cancelled"].includes(downloadStatus)) {
+      return;
+    }
+
+    let cancelled = false;
+    const interval = window.setInterval(async () => {
+      if (cancelled) return;
+      try {
+        const download = await fetchDownloadStatus(downloadId);
+        setDownloadStatus(download.status);
+        if (["completed", "failed", "cancelled"].includes(download.status)) {
+          window.clearInterval(interval);
+        }
+      } catch (error) {
+        console.error("[shorts] failed to poll download status", error);
+      }
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [downloadId, downloadStatus]);
+
+  useEffect(() => {
+    return () => {
+      stopJobPolling();
+      const currentId = currentDownloadIdRef.current;
+      if (currentId) {
+        cancelShortDownload(currentId, true).catch(() => undefined);
+      }
+    };
+  }, [stopJobPolling]);
 
   const handleGenerateShorts = async () => {
     if (!selectedVideo) {
@@ -63,6 +259,10 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
       setNotification("Select a video before publishing.");
       return;
     }
+    if (!downloadId) {
+      setNotification("Preparing video download. Please wait a moment and try again.");
+      return;
+    }
     const clip = shorts[clipIndex];
     if (!clip) {
       setNotification("Unable to locate clip details for publishing.");
@@ -70,19 +270,29 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
     }
 
     setPublishingIndex(clipIndex);
-    setNotification(`Publishing short #${clipIndex + 1}…`);
+    setNotification("Short creation initiated. We’ll update you once it’s ready.");
 
     try {
-      const publication = await publishShortClip(selectedVideo.id, clip, selectedVideo.title);
+      const publication = await publishShortClip({
+        videoId: selectedVideo.id,
+        clip,
+        videoTitle: selectedVideo.title,
+        downloadId,
+      });
       setPublishResults((prev) => ({
         ...prev,
         [clipIndex]: publication,
       }));
 
-      const statusLabel = publication.status === "completed" ? "published" : "scheduled";
-      setNotification(
-        `Short ${clipIndex + 1} ${statusLabel}. ${publication.shareUrl ? "Preview link ready." : ""}`.trim()
-      );
+      if (publication.jobId) {
+        startJobPolling(publication.jobId, clipIndex);
+      }
+
+      const statusLabel = publication.status === "completed" ? "published" : publication.status;
+      const baseMessage =
+        publication.message ??
+        `Short ${clipIndex + 1} ${statusLabel}. ${publication.shareUrl ? "Preview link ready." : ""}`.trim();
+      setNotification(baseMessage || "Short creation in progress.");
     } catch (error) {
       console.error("[shorts] failed to publish clip", error);
       setNotification(error instanceof Error ? error.message : "Failed to publish short.");
@@ -113,6 +323,7 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
     setNotification("Cleared suggestions.");
     setPublishResults({});
     setPublishingIndex(null);
+    stopJobPolling();
   };
 
   return (
@@ -149,6 +360,9 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
                 )}
                 <div>
                   <h3 className="font-semibold text-slate-800 text-sm">{selectedVideo.title}</h3>
+                  {downloadStatus && (
+                    <p className="text-xs text-indigo-600 mt-1">{getDownloadStatusLabel(downloadStatus)}</p>
+                  )}
                   {selectedVideo.publishedAt && (
                     <p className="text-xs text-slate-500 mt-1">
                       Published {new Date(selectedVideo.publishedAt).toLocaleDateString()}
@@ -228,6 +442,9 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
                           {publishResults[index] && (
                             <div className="mt-2 text-xs text-emerald-600 space-y-1">
                               <div>Status: {publishResults[index].status}</div>
+                              {publishResults[index].message && (
+                                <div className="text-emerald-700">{publishResults[index].message}</div>
+                              )}
                               {publishResults[index].shareUrl && (
                                 <div>
                                   <a

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const DEFAULT_MODEL = process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini";
+const DEFAULT_MODEL = process.env.OPENAI_CHAT_MODEL || "gpt-4.1-nano";
 const MAX_RESPONSES = 10;
 
 const assertEnv = () => {

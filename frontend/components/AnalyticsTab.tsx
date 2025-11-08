@@ -15,6 +15,10 @@ interface AnalyticsTabProps {
   videoAnalyticsError: string | null;
   analyticsRangeDays: number;
   onChangeRangeDays: (days: number) => void;
+
+  customStartDate?: string;
+  customEndDate?: string;
+  onChangeCustomDateRange?: (startDate: string, endDate: string) => void;
 }
 
 const formatNumber = (value: number, options?: Intl.NumberFormatOptions) =>
@@ -56,14 +60,47 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   videoAnalyticsError,
   analyticsRangeDays,
   onChangeRangeDays,
+  //FOR CUSTOM DATE RANGE
+  customStartDate,
+  customEndDate,
+  onChangeCustomDateRange,
 }) => {
   const [viewMode, setViewMode] = useState<'channel' | 'video'>('channel');
 
+  //USE FOR CUSTOM DATE RANGE
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempStartDate, setTempStartDate] = useState(customStartDate || '');
+  const [tempEndDate, setTempEndDate] = useState(customEndDate || '');
+
+  // This derived state correctly determines if a custom range is active based on props.
+  const isCustomRange = analyticsRangeDays === 0 && !!customStartDate;
   useEffect(() => {
-    if (!selectedVideo && viewMode === 'video') {
-      setViewMode('channel');
+    // Sync modal dates when props change (e.g., a new custom range is applied)
+    setTempStartDate(customStartDate || '');
+    setTempEndDate(customEndDate || '');
+  }, [customStartDate, customEndDate]);
+
+
+  const handleApplyCustomRange = () => {
+    if (tempStartDate && tempEndDate && onChangeCustomDateRange) {
+      const start = new Date(tempStartDate);
+      const end = new Date(tempEndDate);
+
+      if (start > end) {
+        alert('Start date must be before end date');
+        return;
+      }
+
+      onChangeCustomDateRange(tempStartDate, tempEndDate);
+      setIsCustomRange(true);
+      setShowDatePicker(false);
     }
-  }, [selectedVideo, viewMode]);
+  };
+
+  const handlePresetClick = (days: number) => {
+    setIsCustomRange(false);
+    onChangeRangeDays(days);
+  };
 
   const isLoadingChannel = isLoadingVideos || isLoadingAnalytics;
 
@@ -201,9 +238,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     if (totals.netSubscribers) {
       insights.push({
         title: 'Subscriber Impact',
-        detail: `Net subscribers ${totals.netSubscribers.delta >= 0 ? 'increased' : 'decreased'} by ${
-          totals.netSubscribers.delta >= 0 ? '+' : ''
-        }${formatNumber(totals.netSubscribers.delta)}.`,
+        detail: `Net subscribers ${totals.netSubscribers.delta >= 0 ? 'increased' : 'decreased'} by ${totals.netSubscribers.delta >= 0 ? '+' : ''
+          }${formatNumber(totals.netSubscribers.delta)}.`,
       });
     }
 
@@ -326,8 +362,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             {isLoadingChannel
               ? 'Syncing latest stats…'
               : hasAnalyticsData && currentPeriod
-              ? `Reporting ${currentPeriod.startDate} → ${currentPeriod.endDate}`
-              : `Tracking ${videos.length} video${videos.length === 1 ? '' : 's'}`}
+                ? `Reporting ${currentPeriod.startDate} → ${currentPeriod.endDate}`
+                : `Tracking ${videos.length} video${videos.length === 1 ? '' : 's'}`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -339,16 +375,28 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   key={days}
                   type="button"
                   onClick={() => onChangeRangeDays(days)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-full transition ${
-                    isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  }`}
+                  className={`px-3 py-1 text-xs font-semibold rounded-full transition ${isActive
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                    }`}
                   aria-pressed={isActive}
                 >
                   Last {days}d
                 </button>
               );
             })}
+            {/* Custom date range button */}
+            <button
+              type="button"
+              onClick={() => setShowDatePicker(!showDatePicker)}
+              className={`px-3 py-1 text-xs font-semibold rounded-full transition ${isCustomRange ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+            >
+              Custom
+            </button>
           </div>
+
+          {/* Channel/Video toggle */}
           <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 p-1">
             {([
               { id: 'channel' as const, label: 'Channel' },
@@ -364,9 +412,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                     if (disabled) return;
                     setViewMode(mode.id);
                   }}
-                  className={`px-3 py-1 text-xs font-semibold rounded-full transition ${
-                    isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`px-3 py-1 text-xs font-semibold rounded-full transition ${isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                   aria-pressed={isActive}
                   disabled={disabled}
                 >
@@ -377,6 +424,59 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Custom Date Picker Popup */}
+      {showDatePicker && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={() => setShowDatePicker(false)}>
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full m-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Select Custom Date Range</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={tempStartDate}
+                  onChange={(e) => setTempStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={tempEndDate}
+                  onChange={(e) => setTempEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setShowDatePicker(false)}
+                className="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyCustomRange}
+                disabled={!tempStartDate || !tempEndDate}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition disabled:bg-slate-300 disabled:cursor-not-allowed"
+              >
+                Apply Range
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {viewMode === 'channel' && (analyticsError || videoError) && (
         <div className="p-4 border border-rose-200 bg-rose-50 text-rose-700 text-sm rounded-md">
@@ -410,18 +510,17 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   <div className="text-2xl font-semibold">{metric.value}</div>
                   <div className="inline-flex items-center gap-2 text-xs font-medium">
                     <span
-                      className={`px-2 py-1 rounded-full ${
-                        (metric.delta ?? 0) > 0
-                          ? 'bg-white/15 text-emerald-200'
-                          : (metric.delta ?? 0) < 0
+                      className={`px-2 py-1 rounded-full ${(metric.delta ?? 0) > 0
+                        ? 'bg-white/15 text-emerald-200'
+                        : (metric.delta ?? 0) < 0
                           ? 'bg-white/10 text-rose-200'
                           : 'bg-white/10 text-slate-200'
-                      }`}
+                        }`}
                     >
                       {metric.delta !== undefined && metric.delta !== null
                         ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
-                            metric.deltaRatio
-                          )}`
+                          metric.deltaRatio
+                        )}`
                         : '—'}
                     </span>
                     <span className="text-slate-300">vs previous</span>
@@ -613,8 +712,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                     <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 w-max">
                       {metric.delta !== undefined && metric.delta !== null
                         ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
-                            metric.deltaRatio
-                          )}`
+                          metric.deltaRatio
+                        )}`
                         : '—'}
                     </div>
                   </div>

@@ -36,4 +36,18 @@
     background-size: 200% 200%;
     animation: gradient-fade 6s ease-in-out infinite;
   }
+  @keyframes glow {
+    0%, 100% {
+      box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+      transform: scale(1);
+    }
+    50% {
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.9);
+      transform: scale(1.05);
+    }
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite;
+  }
 }

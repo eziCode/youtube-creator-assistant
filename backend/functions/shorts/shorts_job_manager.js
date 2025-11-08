@@ -6,6 +6,7 @@ import {
 	awaitDownload,
 	getDownload,
 	cancelDownload,
+	deleteDownloadFile,
 	DownloadStatus as DownloadJobStatus,
 } from "./download_manager.js";
 import { trimVideo } from "./trim_video.js";
@@ -231,6 +232,13 @@ const runJob = async (record) => {
 	} finally {
 		if (record.trimmedPath) {
 			await disposeTrimmedFile(record.trimmedPath, record.logger);
+		}
+		try {
+			await deleteDownloadFile(record.downloadId);
+		} catch (cleanupError) {
+			record.logger?.warn?.("Failed to clean up downloaded video file", {
+				error: cleanupError,
+			});
 		}
 	}
 };

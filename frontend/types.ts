@@ -1,6 +1,6 @@
 export type Sentiment = "positive" | "negative" | "question";
 export type Tone = "Friendly" | "Professional" | "Comedic" | "Sarcastic";
-export type Tab = "analytics" | "comments" | "shorts" | "settings";
+export type Tab = "analytics" | "comments" | "shorts" | "settings" | "videoIdeas";
 export type RiskLevel = "low" | "high";
 export type CommentStatus = "pending" | "approved" | "auto-replied";
 

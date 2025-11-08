@@ -9,6 +9,8 @@ export async function getOAuth2Client() {
     "http://localhost:5173/oauth2callback"
   );
 
+  println("OAuth2 client created YOUTUBE MODEL");
+
   // TODO: implement OAuth token exchange for creator
   return oauth2Client;
 }
@@ -20,6 +22,7 @@ export async function getChannelVideos(auth, channelId) {
     part: ["contentDetails"],
     id: [channelId],
   });
+  println("Channel details fetched");
   const uploadsId = res.data.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
 
   const videos = [];
@@ -40,6 +43,8 @@ export async function getChannelVideos(auth, channelId) {
       });
     });
 
+    println("Fetched a page of channel videos");
+
     nextPageToken = plRes.data.nextPageToken;
   } while (nextPageToken);
 
@@ -54,10 +59,12 @@ export async function getTrendingVideos(auth, regionCode = "US") {
     regionCode,
     maxResults: 20,
   });
+  println("Trending videos fetched");
 
   return res.data.items?.map(item => ({
     title: item.snippet?.title,
     category: item.snippet?.categoryId,
     views: item.statistics?.viewCount,
   })) || [];
+
 }

@@ -25,5 +25,7 @@ Generate:
     temperature: 0.8
   });
 
+  println("LLM response received");
+
   return response.choices[0].message?.content || "";
 }

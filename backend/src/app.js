@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 import cors from "cors";
 import session from "express-session";
 import MongoStore from "connect-mongo";
+import generateRouter from "./routes/generate.js";
+
 import { retrieveComments } from "../functions/comments/retrieve_comments.js";
 import { getVideos } from "../functions/dashboard/get_videos.js";
 import {
@@ -48,6 +50,7 @@ app.use(
 
 const registerRoutes = () => {
 	app.use("/auth", authRouter);
+	app.use("/generate", generateRouter);
 
 	app.get("/retrieve-comments", async (req, res) => {
 		const videoId = req.query.videoId;

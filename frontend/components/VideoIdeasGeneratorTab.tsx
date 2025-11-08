@@ -21,10 +21,12 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
 
   const handleGenerate = async () => {
+    console.log("No user channel ID provided");
     if (!userChannelId) {
       setError("No YouTube channel connected.");
       return;
     }
+    console.log("Generated video ideas for channel ID:", userChannelId);
 
     setIsLoading(true);
     setError(null);
@@ -40,7 +42,7 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
       });
 
       const data = await response.json();
-
+      console.log("Backend response:", response, data);
       if (!response.ok) {
         throw new Error(data?.error || "Failed to generate video ideas.");
       }

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthenticatedUser, ChannelAnalyticsOverview, Tab, Tone, Video, VideoAnalyticsOverview } from '../types';
 import { API_BASE_URL } from '../constants';
 import Sidebar from './Sidebar';
@@ -27,8 +27,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [isLoadingVideoAnalytics, setIsLoadingVideoAnalytics] = useState<boolean>(false);
   const [videoAnalyticsError, setVideoAnalyticsError] = useState<string | null>(null);
   const [analyticsRangeDays, setAnalyticsRangeDays] = useState<number>(28);
+  const [customStartDate, setCustomStartDate] = useState<string | undefined>();
+  const [customEndDate, setCustomEndDate] = useState<string | undefined>();
+  const [channelStartDate, setChannelStartDate] = useState<string | undefined>();
 
   const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
+  const toDateOnly = useCallback((iso?: string | null) => {
+    if (!iso) return undefined;
+    const parsed = new Date(iso);
+    if (Number.isNaN(parsed.getTime())) return undefined;
+    const year = parsed.getUTCFullYear();
+    const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(parsed.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
 
   useEffect(() => {
     if (!user?.channelId) {
@@ -42,6 +54,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       setVideoAnalytics(null);
       setIsLoadingVideoAnalytics(false);
       setVideoAnalyticsError(user ? 'Select a channel video to analyze once connected.' : null);
+      setChannelStartDate(undefined);
       return;
     }
 
@@ -72,6 +85,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
         const fetchedVideos: Video[] = Array.isArray(payload?.videos) ? payload.videos : [];
         setVideos(fetchedVideos);
+        const earliestPublished = fetchedVideos.reduce<string | undefined>((earliest, video) => {
+          const dateOnly = toDateOnly(video?.publishedAt);
+          if (!dateOnly) return earliest;
+          if (!earliest || dateOnly < earliest) {
+            return dateOnly;
+          }
+          return earliest;
+        }, undefined);
+        setChannelStartDate(earliestPublished);
         setSelectedVideo((prev) => {
           if (!fetchedVideos.length) {
             return null;
@@ -92,6 +114,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         setVideos([]);
         setSelectedVideo(null);
         setVideoError(err instanceof Error ? err.message : 'Failed to load videos');
+        setChannelStartDate(undefined);
       } finally {
         if (!controller.signal.aborted) {
           setIsLoadingVideos(false);
@@ -113,6 +136,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       return;
     }
 
+    const isCustomRange = analyticsRangeDays === 0;
+
+    if (isCustomRange && (!customStartDate || !customEndDate)) {
+      setAnalytics(null);
+      return;
+    }
+
     const controller = new AbortController();
 
     const fetchAnalytics = async () => {
@@ -120,7 +150,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       setAnalyticsError(null);
 
       try {
-        const params = new URLSearchParams({ rangeDays: String(analyticsRangeDays) });
+        const params = new URLSearchParams();
+        if (isCustomRange && customStartDate && customEndDate) {
+          params.set('startDate', customStartDate);
+          params.set('endDate', customEndDate);
+        } else {
+          params.set('rangeDays', String(analyticsRangeDays));
+        }
         const response = await fetch(`${apiBaseUrl}/dashboard/analytics/overview?${params.toString()}`, {
           credentials: 'include',
           signal: controller.signal,
@@ -156,7 +192,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     return () => {
       controller.abort();
     };
-  }, [apiBaseUrl, user?.channelId, analyticsRangeDays]);
+  }, [apiBaseUrl, user?.channelId, analyticsRangeDays, customStartDate, customEndDate]);
 
   useEffect(() => {
     if (!user?.channelId || !selectedVideo?.id) {
@@ -170,6 +206,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       return;
     }
 
+    const isCustomRange = analyticsRangeDays === 0;
+    if (isCustomRange && (!customStartDate || !customEndDate)) {
+      return;
+    }
+
     const controller = new AbortController();
 
     const fetchVideoAnalytics = async () => {
@@ -179,8 +220,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       try {
         const params = new URLSearchParams({
           videoId: selectedVideo.id,
-          rangeDays: String(analyticsRangeDays),
         });
+
+        if (isCustomRange && customStartDate && customEndDate) {
+          params.set('startDate', customStartDate);
+          params.set('endDate', customEndDate);
+        } else {
+          params.set('rangeDays', String(analyticsRangeDays));
+        }
         const response = await fetch(`${apiBaseUrl}/dashboard/analytics/video?${params.toString()}`, {
           credentials: 'include',
           signal: controller.signal,
@@ -216,7 +263,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     return () => {
       controller.abort();
     };
-  }, [apiBaseUrl, user?.channelId, selectedVideo?.id, analyticsRangeDays]);
+  }, [apiBaseUrl, user?.channelId, selectedVideo?.id, analyticsRangeDays, customStartDate, customEndDate]);
+
+  const handleChangeRangeDays = useCallback((days: number) => {
+    setAnalyticsRangeDays(days);
+    if (days > 0) {
+      setCustomStartDate(undefined);
+      setCustomEndDate(undefined);
+    }
+  }, []);
+
+  const handleChangeCustomDateRange = useCallback((start: string, end: string) => {
+    setCustomStartDate(start);
+    setCustomEndDate(end);
+  }, []);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -234,13 +294,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             analyticsError={analyticsError}
             videoAnalyticsError={videoAnalyticsError}
             analyticsRangeDays={analyticsRangeDays}
-            onChangeRangeDays={setAnalyticsRangeDays}
+            onChangeRangeDays={handleChangeRangeDays}
+            customStartDate={customStartDate}
+            customEndDate={customEndDate}
+            onChangeCustomDateRange={handleChangeCustomDateRange}
+            channelStartDate={channelStartDate}
           />
         );
       case 'comments':
         return <CommentsTab tone={tone} />;
       case 'shorts':
-        return <ShortsGeneratorTab />;
+        return <ShortsGeneratorTab selectedVideo={selectedVideo} />;
       case 'settings':
         return <SettingsTab tone={tone} setTone={setTone} />;
       case 'videoIdeas':

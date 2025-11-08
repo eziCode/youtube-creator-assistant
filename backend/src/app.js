@@ -12,6 +12,7 @@ import {
 } from "../functions/dashboard/get_channel_analytics.js";
 import { createCommentResponses } from "../functions/comments/create_comment_responses.js";
 import { respondToComments } from "../functions/comments/respond_to_comments.js";
+import { generateShortsIdeas } from "../functions/shorts/create_shorts.js";
 import authRouter from "./routes/auth.js";
 
 dotenv.config();
@@ -226,6 +227,41 @@ const registerRoutes = () => {
 		} catch (err) {
 			console.error(err);
 			return res.status(500).json({ error: err.message || "failed to retrieve video analytics" });
+		}
+	});
+
+	app.post("/shorts/ideas", async (req, res) => {
+		if (!req.session?.tokens?.accessToken) {
+			return res.status(401).json({ error: "authentication required" });
+		}
+
+		const { videoId, videoTitle } = req.body ?? {};
+
+		if (!videoId || typeof videoId !== "string") {
+			return res.status(400).json({ error: "videoId is required" });
+		}
+
+		try {
+			const result = await generateShortsIdeas(videoId, videoTitle ?? "", req.session.tokens);
+
+			if (req.session && result.updatedTokens) {
+				req.session.tokens = {
+					...req.session.tokens,
+					...result.updatedTokens,
+				};
+
+				await new Promise((resolve, reject) => {
+					req.session.save((err) => {
+						if (err) reject(err);
+						else resolve();
+					});
+				});
+			}
+
+			return res.json({ ideas: result.ideas });
+		} catch (err) {
+			console.error(err);
+			return res.status(500).json({ error: err.message || "failed to generate short ideas" });
 		}
 	});
 };

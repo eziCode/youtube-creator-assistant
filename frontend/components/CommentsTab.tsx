@@ -3,29 +3,170 @@ import { Comment, Tone, CommentStatus } from '../types';
 import { MOCK_COMMENTS } from '../constants';
 import { regenerateReply } from '../services/geminiService';
 import { RobotIcon, InboxIcon } from './icons';
+import {
+  AuthenticatedUser,
+  Comment,
+  CommentStatus,
+  RiskLevel,
+  Sentiment,
+  Tone,
+  Video,
+} from '../types';
 
 interface CommentsTabProps {
   tone: Tone;
+  selectedVideo: Video | null;
+  user: AuthenticatedUser | null;
 }
 
 const CommentsTab: React.FC<CommentsTabProps> = ({ tone }) => {
   const [comments, setComments] = useState<Comment[]>(MOCK_COMMENTS);
   const [isRegenerating, setIsRegenerating] = useState<number | null>(null);
 
-  const setCommentStatus = (id: number, status: CommentStatus) => {
+const inferSentiment = (text: string): Sentiment => {
+  const lower = text.toLowerCase();
+  if (!lower) return 'neutral';
+
+  const questionWords = ['?', 'who', 'what', 'when', 'where', 'why', 'how', 'can you'];
+  if (questionWords.some(word => lower.includes(word))) {
+    return 'question';
+  }
+
+  const negativeWords = ['hate', 'bad', 'terrible', 'awful', 'issue', 'problem', 'hard', 'difficult', 'confusing'];
+  if (negativeWords.some(word => lower.includes(word))) {
+    return 'negative';
+  }
+
+  const positiveWords = ['love', 'great', 'awesome', 'amazing', 'good', 'helpful', 'thanks', 'thank you'];
+  if (positiveWords.some(word => lower.includes(word))) {
+    return 'positive';
+  }
+
+  return 'neutral';
+};
+
+const deriveRisk = (sentiment: Sentiment): RiskLevel =>
+  sentiment === 'negative' || sentiment === 'question' ? 'high' : 'low';
+
+const CommentsTab: React.FC<CommentsTabProps> = ({ tone, selectedVideo, user }) => {
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+	const [isRegenerating, setIsRegenerating] = useState<string | null>(null);
+	const [regenerateError, setRegenerateError] = useState<string | null>(null);
+  const [refreshIndex, setRefreshIndex] = useState(0);
+	const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+	const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
+
+	useEffect(() => {
+		setRegenerateError(null);
+	}, [selectedVideo?.id, refreshIndex]);
+
+  useEffect(() => {
+    if (!selectedVideo?.id) {
+      setComments([]);
+      setError('Select a video from the sidebar to load comments.');
+      setIsLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const fetchComments = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(
+          `${apiBaseUrl}/retrieve-comments?videoId=${encodeURIComponent(selectedVideo.id)}`,
+          {
+            credentials: 'include',
+            signal: controller.signal,
+          }
+        );
+
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          const message =
+            (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string')
+              ? payload.error
+              : `Failed to load comments (status ${response.status})`;
+          throw new Error(message);
+        }
+
+        const creatorChannelId = user?.channelId ?? null;
+        const fetchedComments: Comment[] = Array.isArray(payload?.comments) ? payload.comments : [];
+        const normalizedComments = fetchedComments.map((comment) => {
+          const baseReplies = Array.isArray(comment.replies) ? comment.replies : [];
+          const replies = baseReplies.map((reply) => ({
+            ...reply,
+            text: stripHtml(reply.text),
+          }));
+          const sanitizedText = stripHtml(comment.text);
+          const sentiment = comment.sentiment ?? inferSentiment(sanitizedText);
+          const risk = comment.risk ?? deriveRisk(sentiment);
+          const creatorReply = creatorChannelId
+            ? replies.find((reply) => reply.author?.channelId && reply.author.channelId === creatorChannelId)
+            : undefined;
+          const suggestedReply = creatorReply?.text ?? comment.suggestedReply ?? '';
+          const status: CommentStatus = creatorReply ? 'auto-replied' : comment.status ?? 'pending';
+
+          return {
+            ...comment,
+            text: sanitizedText,
+            replies,
+            sentiment,
+            risk,
+            suggestedReply,
+            status,
+          };
+        });
+
+        setComments(normalizedComments);
+        setLastUpdated(new Date());
+      } catch (err) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        console.error('[comments] failed to load comments', err);
+        setComments([]);
+        setError(err instanceof Error ? err.message : 'Failed to load comments');
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchComments();
+
+    return () => {
+      controller.abort();
+    };
+  }, [apiBaseUrl, selectedVideo?.id, refreshIndex, user?.channelId]);
+
+  const setCommentStatus = (id: string, status: CommentStatus) => {
     setComments(prev => prev.map(c => (c.id === id ? { ...c, status } : c)));
   };
 
-  const updateSuggestedReply = (id: number, text: string) => {
+  const updateSuggestedReply = (id: string, text: string) => {
     setComments(prev => prev.map(c => (c.id === id ? { ...c, suggestedReply: text } : c)));
   };
   
-  const handleRegenerate = async (comment: Comment) => {
-    setIsRegenerating(comment.id);
-    const newReply = await regenerateReply(comment, tone);
-    updateSuggestedReply(comment.id, newReply);
-    setIsRegenerating(null);
-  };
+	const handleRegenerate = async (comment: Comment) => {
+		setRegenerateError(null);
+		setIsRegenerating(comment.id);
+		try {
+			const newReply = await regenerateReply(comment, tone, { videoTitle: selectedVideo?.title });
+			updateSuggestedReply(comment.id, newReply);
+		} catch (err) {
+			console.error('[comments] failed to regenerate reply', err);
+			const message = err instanceof Error ? err.message : 'Failed to regenerate reply';
+			setRegenerateError(message);
+		} finally {
+			setIsRegenerating(null);
+		}
+	};
 
   const { needsReviewComments, autoRepliedComments } = useMemo(() => {
     return comments.reduce((acc, comment) => {
@@ -38,6 +179,37 @@ const CommentsTab: React.FC<CommentsTabProps> = ({ tone }) => {
     }, { needsReviewComments: [] as Comment[], autoRepliedComments: [] as Comment[] });
   }, [comments]);
 
+  const refreshComments = () => {
+    setRefreshIndex(prev => prev + 1);
+  };
+
+  const renderStatusMessage = () => {
+    if (!selectedVideo?.id) {
+      return <p className="text-sm text-slate-500">Select a video from the sidebar to review its comments.</p>;
+    }
+
+    if (isLoading) {
+      return <p className="text-sm text-slate-500">Loading comments from YouTube…</p>;
+    }
+
+    if (error) {
+      return <p className="text-sm text-rose-600">{error}</p>;
+    }
+
+    if (!comments.length) {
+      return <p className="text-sm text-slate-500">No comments were found for this video. Try refreshing in a bit.</p>;
+    }
+
+    return null;
+  };
+
+  const formatTimestamp = (value?: string | null) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString();
+  };
+
   return (
     <section className="space-y-9 text-white">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -49,6 +221,13 @@ const CommentsTab: React.FC<CommentsTabProps> = ({ tone }) => {
           </strong>
         </div>
       </div>
+
+		<div className="mb-4 space-y-2">
+			{renderStatusMessage()}
+			{regenerateError && (
+				<p className="text-sm text-rose-600">{regenerateError}</p>
+			)}
+		</div>
 
       <div className="space-y-8">
         {/* === AUTO-REPLIED SECTION === */}

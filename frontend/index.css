@@ -9,3 +9,58 @@ body {
 #root {
   min-height: 100vh;
 }
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    90deg,
+    rgba(226, 232, 240, 0.6) 0%,
+    rgba(226, 232, 240, 1) 25%,
+    rgba(226, 232, 240, 0.6) 50%,
+    rgba(226, 232, 240, 1) 75%,
+    rgba(226, 232, 240, 0.6) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+.skeleton-xs {
+  height: 0.4rem;
+}
+
+.skeleton-sm {
+  height: 0.6rem;
+}
+
+.skeleton-md {
+  height: 0.8rem;
+}
+
+.skeleton-lg {
+  height: 1rem;
+  border-radius: 0.75rem;
+}
+
+.skeleton-xl {
+  height: 1.75rem;
+}
+
+.skeleton-chip {
+  height: 2.25rem;
+  border-radius: 9999px;
+}
+
+.skeleton-panel {
+  border-radius: 1rem;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}

@@ -401,35 +401,49 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             }
           >
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {channelHeroMetrics.map((metric) => (
-                <div
-                  key={metric.label}
-                  className="rounded-xl bg-slate-900 text-white px-4 py-5 shadow-sm flex flex-col gap-3"
-                >
-                  <div className="text-xs uppercase tracking-wide text-slate-300">{metric.label}</div>
-                  <div className="text-2xl font-semibold">{metric.value}</div>
-                  <div className="inline-flex items-center gap-2 text-xs font-medium">
-                    <span
-                      className={`px-2 py-1 rounded-full ${
-                        (metric.delta ?? 0) > 0
-                          ? 'bg-white/15 text-emerald-200'
-                          : (metric.delta ?? 0) < 0
-                          ? 'bg-white/10 text-rose-200'
-                          : 'bg-white/10 text-slate-200'
-                      }`}
+              {isLoadingChannel && channelHeroMetrics.length === 0
+                ? Array.from({ length: 3 }).map((_, idx) => (
+                    <div
+                      key={`channel-pulse-skeleton-${idx}`}
+                      className="rounded-xl border border-slate-200 px-4 py-5 shadow-sm flex flex-col gap-3 bg-white"
                     >
-                      {metric.delta !== undefined && metric.delta !== null
-                        ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
-                            metric.deltaRatio
-                          )}`
-                        : '—'}
-                    </span>
-                    <span className="text-slate-300">vs previous</span>
-                  </div>
-                </div>
-              ))}
-              {channelHeroMetrics.length === 0 && (
-                <div className="col-span-full text-sm text-slate-300">
+                      <div className="skeleton skeleton-xs w-20 rounded-full" />
+                      <div className="skeleton skeleton-xl w-24" />
+                      <div className="flex items-center gap-2">
+                        <div className="skeleton skeleton-chip w-20" />
+                        <div className="skeleton skeleton-xs flex-1 rounded-full" />
+                      </div>
+                    </div>
+                  ))
+                : channelHeroMetrics.map((metric) => (
+                    <div
+                      key={metric.label}
+                      className="rounded-xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 px-4 py-5 shadow-sm flex flex-col gap-3"
+                    >
+                      <div className="text-xs uppercase tracking-wide text-slate-500">{metric.label}</div>
+                      <div className="text-2xl font-semibold text-slate-900">{metric.value}</div>
+                      <div className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
+                        <span
+                          className={`px-2 py-1 rounded-full ${
+                            (metric.delta ?? 0) > 0
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : (metric.delta ?? 0) < 0
+                              ? 'bg-rose-100 text-rose-700'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {metric.delta !== undefined && metric.delta !== null
+                            ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
+                                metric.deltaRatio
+                              )}`
+                            : '—'}
+                        </span>
+                        <span className="text-slate-500">vs previous</span>
+                      </div>
+                    </div>
+                  ))}
+              {channelHeroMetrics.length === 0 && !isLoadingChannel && (
+                <div className="col-span-full text-sm text-slate-500">
                   No channel metrics available for this window.
                 </div>
               )}
@@ -450,8 +464,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 return (
                   <div key={key} className="space-y-2">
                     <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
-                    {isLoadingChannel ? (
-                      <div className="h-8 bg-slate-200 rounded-md animate-pulse" />
+                    {isLoadingChannel && !metric ? (
+                      <div className="skeleton skeleton-lg w-24" />
                     ) : metric ? (
                       <>
                         <div className="text-2xl font-semibold text-slate-800">{format(metric.value)}</div>
@@ -478,8 +492,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
             <Card title="📈 Daily Views Trend" className="lg:col-span-3">
-              {isLoadingChannel ? (
-                <div className="h-48 bg-slate-200 rounded-md animate-pulse" />
+              {isLoadingChannel && dailySeries.length === 0 ? (
+                <div className="skeleton skeleton-panel h-48 w-full" />
               ) : dailySeries.length === 0 ? (
                 <div className="text-sm text-slate-500">No daily data yet for the selected period.</div>
               ) : (
@@ -522,11 +536,11 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             </Card>
 
             <Card title="💡 Engagement Highlights" className="lg:col-span-2">
-              {isLoadingChannel ? (
+              {isLoadingChannel && highlightInsights.length === 0 ? (
                 <div className="space-y-3">
-                  <div className="h-4 bg-slate-200 rounded animate-pulse" />
-                  <div className="h-4 bg-slate-200 rounded animate-pulse" />
-                  <div className="h-4 bg-slate-200 rounded animate-pulse" />
+                  <div className="skeleton skeleton-sm w-48" />
+                  <div className="skeleton skeleton-sm w-56" />
+                  <div className="skeleton skeleton-sm w-40" />
                 </div>
               ) : highlightInsights.length > 0 ? (
                 <ul className="space-y-4 text-sm text-slate-600">
@@ -566,13 +580,13 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             </div>
           ) : isLoadingVideoAnalytics ? (
             <div className="space-y-4">
-              <div className="h-6 bg-slate-200 rounded-md animate-pulse" />
+              <div className="skeleton skeleton-sm w-48" />
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {Array.from({ length: 6 }).map((_, idx) => (
-                  <div key={idx} className="h-20 bg-slate-200 rounded-md animate-pulse" />
+                  <div key={idx} className="skeleton skeleton-panel h-20 w-full" />
                 ))}
               </div>
-              <div className="h-40 bg-slate-200 rounded-md animate-pulse" />
+              <div className="skeleton skeleton-panel h-40 w-full" />
             </div>
           ) : !selectedVideoTotals ? (
             <p className="text-sm text-slate-500">

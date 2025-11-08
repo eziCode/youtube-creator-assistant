@@ -28,6 +28,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [videoAnalyticsError, setVideoAnalyticsError] = useState<string | null>(null);
   const [analyticsRangeDays, setAnalyticsRangeDays] = useState<number>(28);
   const [useSampleData, setUseSampleData] = useState<boolean>(false);
+  const [customStartDate, setCustomStartDate] = useState<string | undefined>(undefined);
+  const [customEndDate, setCustomEndDate] = useState<string | undefined>(undefined);
+  const [channelStartDate, setChannelStartDate] = useState<string | undefined>(undefined);
 
   const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
   const toDateOnly = useCallback((iso?: string | null) => {
@@ -126,7 +129,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     return () => {
       controller.abort();
     };
-  }, [apiBaseUrl, user?.channelId]);
+  }, [apiBaseUrl, user?.channelId, useSampleData]);
 
   useEffect(() => {
     if (!user?.channelId) {

@@ -428,9 +428,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     if (totals.netSubscribers && totals.netSubscribers.delta !== null) {
       insights.push({
         title: 'Subscriber Impact',
-        detail: `Net subscribers ${totals.netSubscribers.delta >= 0 ? 'increased' : 'decreased'} by ${
-          totals.netSubscribers.delta >= 0 ? '+' : ''
-        }${formatNumber(totals.netSubscribers.delta)}.`,
+        detail: `Net subscribers ${totals.netSubscribers.delta >= 0 ? 'increased' : 'decreased'} by ${totals.netSubscribers.delta >= 0 ? '+' : ''
+          }${formatNumber(totals.netSubscribers.delta)}.`,
       });
     }
 
@@ -534,10 +533,10 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             {isLoadingChannel
               ? 'Syncing latest stats…'
               : isCustomRangeActive && customStartDate && customEndDate
-              ? `Reporting ${formatIsoDate(customStartDate)} → ${formatIsoDate(customEndDate)}`
-              : hasAnalyticsData && currentPeriod
-              ? `Reporting ${formatIsoDate(currentPeriod.startDate)} → ${formatIsoDate(currentPeriod.endDate)}`
-              : `Tracking ${videos.length} video${videos.length === 1 ? '' : 's'}`}
+                ? `Reporting ${formatIsoDate(customStartDate)} → ${formatIsoDate(customEndDate)}`
+                : hasAnalyticsData && currentPeriod
+                  ? `Reporting ${formatIsoDate(currentPeriod.startDate)} → ${formatIsoDate(currentPeriod.endDate)}`
+                  : `Tracking ${videos.length} video${videos.length === 1 ? '' : 's'}`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -549,9 +548,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   key={days}
                   type="button"
                   onClick={() => handlePresetClick(days)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-full transition ${
-                    isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  }`}
+                  className={`px-3 py-1 text-xs font-semibold rounded-full transition ${isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    }`}
                   aria-pressed={isActive}
                 >
                   Last {days}d
@@ -561,9 +559,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             <button
               type="button"
               onClick={() => setShowDatePicker(true)}
-              className={`px-3 py-1 text-xs font-semibold rounded-full transition ${
-                isCustomRangeActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
+              className={`px-3 py-1 text-xs font-semibold rounded-full transition ${isCustomRangeActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
               aria-pressed={isCustomRangeActive}
             >
               Custom
@@ -584,9 +581,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                     if (disabled) return;
                     setViewMode(mode.id);
                   }}
-                  className={`px-3 py-1 text-xs font-semibold rounded-full transition ${
-                    isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`px-3 py-1 text-xs font-semibold rounded-full transition ${isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                   aria-pressed={isActive}
                   disabled={disabled}
                 >
@@ -716,51 +712,50 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {isLoadingChannel
                 ? Array.from({ length: 3 }).map((_, idx) => (
-                    <div
-                      key={`channel-pulse-skeleton-${idx}`}
-                      className="rounded-xl border border-slate-200 px-4 py-5 shadow-sm flex flex-col gap-3 bg-white"
-                    >
-                      <div className="skeleton skeleton-xs w-20 rounded-full" />
-                      <div className="skeleton skeleton-xl w-28" />
-                      <div className="flex items-center gap-2">
-                        <div className="skeleton skeleton-chip w-20" />
-                        <div className="skeleton skeleton-xs flex-1 rounded-full" />
-                      </div>
+                  <div
+                    key={`channel-pulse-skeleton-${idx}`}
+                    className="rounded-xl border border-slate-200 px-4 py-5 shadow-sm flex flex-col gap-3 bg-white"
+                  >
+                    <div className="skeleton skeleton-xs w-20 rounded-full" />
+                    <div className="skeleton skeleton-xl w-28" />
+                    <div className="flex items-center gap-2">
+                      <div className="skeleton skeleton-chip w-20" />
+                      <div className="skeleton skeleton-xs flex-1 rounded-full" />
                     </div>
-                  ))
+                  </div>
+                ))
                 : channelHeroMetrics.map((metric) => (
-                    <div
-                      key={metric.label}
-                      className="rounded-xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 px-4 py-5 shadow-sm flex flex-col gap-3"
-                    >
-                      <div className="text-xs uppercase tracking-wide text-slate-500">{metric.label}</div>
-                      <div className="text-2xl font-semibold text-slate-900">{metric.value}</div>
-                      <div className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
-                        {metric.delta !== undefined && metric.delta !== null ? (
-                          <span
-                            className={`px-2 py-1 rounded-full ${
-                              (metric.delta ?? 0) > 0
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : (metric.delta ?? 0) < 0
+                  <div
+                    key={metric.label}
+                    className="rounded-xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 px-4 py-5 shadow-sm flex flex-col gap-3"
+                  >
+                    <div className="text-xs uppercase tracking-wide text-slate-500">{metric.label}</div>
+                    <div className="text-2xl font-semibold text-slate-900">{metric.value}</div>
+                    <div className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
+                      {metric.delta !== undefined && metric.delta !== null ? (
+                        <span
+                          className={`px-2 py-1 rounded-full ${(metric.delta ?? 0) > 0
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : (metric.delta ?? 0) < 0
                                 ? 'bg-rose-100 text-rose-700'
                                 : 'bg-slate-100 text-slate-600'
                             }`}
-                          >
-                            {metric.delta !== undefined && metric.delta !== null
-                              ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
-                                  metric.deltaRatio
-                                )}`
-                              : '—'}
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-500">—</span>
-                        )}
-                        <span className="text-slate-500">
-                          {previousPeriod ? 'vs previous' : isCustomRangeActive ? 'custom range' : 'current window'}
+                        >
+                          {metric.delta !== undefined && metric.delta !== null
+                            ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
+                              metric.deltaRatio
+                            )}`
+                            : '—'}
                         </span>
-                      </div>
+                      ) : (
+                        <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-500">—</span>
+                      )}
+                      <span className="text-slate-500">
+                        {previousPeriod ? 'vs previous' : isCustomRangeActive ? 'custom range' : 'current window'}
+                      </span>
                     </div>
-                  ))}
+                  </div>
+                ))}
               {channelHeroMetrics.length === 0 && !isLoadingChannel && (
                 <div className="col-span-full text-sm text-slate-500">
                   No channel metrics available for this window.
@@ -857,21 +852,21 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             !selectedVideo
               ? 'Pick a published video from the sidebar to explore its performance.'
               : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-slate-500">{selectedVideo.title}</span>
-                    {isLoadingVideoAnalytics ? (
-                      <div className="skeleton skeleton-xs w-32" />
-                    ) : isCustomRangeActive && customStartDate && customEndDate ? (
-                      <span className="text-slate-500">
-                        {formatIsoDate(customStartDate)} → {formatIsoDate(customEndDate)}
-                      </span>
-                    ) : videoPeriod ? (
-                      <span className="text-slate-500">
-                        {formatIsoDate(videoPeriod.startDate)} → {formatIsoDate(videoPeriod.endDate)}
-                      </span>
-                    ) : null}
-                  </div>
-                )
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-slate-500">{selectedVideo.title}</span>
+                  {isLoadingVideoAnalytics ? (
+                    <div className="skeleton skeleton-xs w-32" />
+                  ) : isCustomRangeActive && customStartDate && customEndDate ? (
+                    <span className="text-slate-500">
+                      {formatIsoDate(customStartDate)} → {formatIsoDate(customEndDate)}
+                    </span>
+                  ) : videoPeriod ? (
+                    <span className="text-slate-500">
+                      {formatIsoDate(videoPeriod.startDate)} → {formatIsoDate(videoPeriod.endDate)}
+                    </span>
+                  ) : null}
+                </div>
+              )
           }
         >
           {!selectedVideo ? (
@@ -1022,8 +1017,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                             <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 w-max">
                               {metric.delta !== undefined && metric.delta !== null
                                 ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
-                                    metric.deltaRatio
-                                  )}`
+                                  metric.deltaRatio
+                                )}`
                                 : '—'}
                             </div>
                           </div>
@@ -1041,8 +1036,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                               <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
                                 {hasDelta
                                   ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
-                                      metric.deltaRatio
-                                    )}`
+                                    metric.deltaRatio
+                                  )}`
                                   : '—'}
                               </div>
                             </div>

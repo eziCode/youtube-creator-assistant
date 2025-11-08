@@ -80,8 +80,8 @@ const LandingPage: React.FC<LandingPageProps> = ({
   onGoToDashboard,
 }) => {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
-      <header className="fixed top-0 left-0 w-full z-30">
+    <div className="h-screen overflow-x-hidden overflow-y-auto bg-slate-950 text-slate-100 font-sans snap-y snap-mandatory scroll-smooth">
+      <header className="fixed top-0 left-0 z-30 w-full">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 md:px-8">
           <div className="flex items-center gap-3">
             <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-indigo-300 shadow-lg shadow-indigo-500/20 backdrop-blur animate-glow">
@@ -104,7 +104,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </header>
 
-      <main className="relative pt-36 pb-20 md:pt-44 md:pb-28">
+      <main className="relative flex min-h-screen snap-start snap-always flex-col justify-center pt-36 pb-20 md:pt-44 md:pb-28">
         <div className="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_top,_rgba(79,70,229,0.35),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(236,72,153,0.2),_transparent_55%)]" />
         <div className="absolute inset-0 -z-10 bg-[linear-gradient(115deg,rgba(15,23,42,0.95)_0%,rgba(15,23,42,0.8)_40%,rgba(30,58,138,0.35)_100%)] backdrop-blur" />
         <div className="absolute inset-x-0 top-32 -z-10 mx-auto h-[600px] w-[600px] rounded-full bg-indigo-500/30 blur-3xl md:h-[720px] md:w-[720px]" />
@@ -208,7 +208,10 @@ const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </main>
 
-      <section id="features" className="relative border-t border-white/5 bg-slate-950/80 py-24 backdrop-blur">
+      <section
+        id="features"
+        className="relative flex min-h-screen snap-start snap-always flex-col justify-center border-t border-white/5 bg-slate-950/80 py-24 backdrop-blur"
+      >
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(129,140,248,0.15),_transparent_55%)]" />
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <div className="mx-auto max-w-3xl text-center">
@@ -237,7 +240,10 @@ const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      <section id="workflow" className="relative border-t border-white/5 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 py-24">
+      <section
+        id="workflow"
+        className="relative flex min-h-screen snap-start snap-always flex-col justify-center border-t border-white/5 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 py-24"
+      >
         <div className="absolute inset-x-0 top-0 -z-10 h-32 bg-gradient-to-b from-indigo-500/15 to-transparent blur-3xl" />
         <div className="mx-auto flex max-w-6xl flex-col gap-16 px-5 md:px-8 lg:flex-row lg:items-center">
           <div className="max-w-xl">
@@ -264,7 +270,10 @@ const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      <section id="testimonials" className="relative border-t border-white/5 bg-slate-950 py-24">
+      <section
+        id="testimonials"
+        className="relative flex min-h-screen snap-start snap-always flex-col justify-center border-t border-white/5 bg-slate-950 py-24"
+      >
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,_rgba(15,23,42,0.3),_transparent_70%)]" />
         <div className="mx-auto max-w-6xl px-5 md:px-8">
           <div className="mx-auto max-w-2xl text-center">
@@ -295,7 +304,10 @@ const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      <section id="cta" className="relative border-t border-white/5 bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 py-20">
+      <section
+        id="cta"
+        className="relative flex min-h-screen snap-start snap-always flex-col justify-center border-t border-white/5 bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 py-20"
+      >
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.35),_transparent_45%)] blur-3xl" />
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-5 text-center md:px-8">
           <h2 className="text-3xl font-semibold text-white md:text-4xl">
@@ -321,7 +333,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      <footer className="border-t border-white/10 bg-slate-950/90 py-10">
+      <footer className="border-t border-white/10 bg-slate-950/90 py-10 snap-end">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 text-center text-sm text-white/50 sm:flex-row sm:items-center sm:justify-between md:px-8">
           <p>&copy; {new Date().getFullYear()} YouTube AI Assistant. Built for creators who never slow down.</p>
           <div className="flex justify-center gap-6">

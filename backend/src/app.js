@@ -222,9 +222,6 @@ const registerRoutes = () => {
 		return res.json({ download });
 	});
 
-    app.get("/retrieve-comments", async (req, res) => {
-        const videoId = req.query.videoId;
-        if (!videoId) return res.status(400).json({ error: "videoId query param required" });
 	app.get("/retrieve-comments", async (req, res) => {
 		const videoId = req.query.videoId;
 		if (!videoId) return res.status(400).json({ error: "videoId query param required" });

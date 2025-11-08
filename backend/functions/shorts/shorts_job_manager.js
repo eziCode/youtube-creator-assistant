@@ -181,16 +181,20 @@ const runJob = async (record) => {
 			message: "Uploading short to YouTube…",
 		});
 
+		const baseTitle = record.clip?.title ?? `Short from ${record.videoTitle || "video"}`;
+		const shortTitle = /#shorts/i.test(baseTitle) ? baseTitle : `${baseTitle} #Shorts`;
+
 		const uploadResult = await uploadShortVideo({
 			filePath: trimmedPath,
-			title: record.clip?.title ?? `Short from ${record.videoTitle || "video"}`,
+			title: shortTitle,
 			description: record.clip?.reason
-				? `${record.clip.reason}\n\nOriginal video: https://www.youtube.com/watch?v=${record.videoId}`
-				: `Auto-generated short from ${record.videoTitle || "video"}.`,
-			tags: ["shorts", "youtube", "clip"].concat(record.clip?.hook ? [record.clip.hook] : []),
-			privacyStatus: "private",
+				? `${record.clip.reason}\n\nOriginal video: https://www.youtube.com/watch?v=${record.videoId}\n\n#Shorts`
+				: `Auto-generated short from ${record.videoTitle || "video"}.\n\n#Shorts`,
+			tags: ["#shorts", "shorts", "youtube", "clip"].concat(record.clip?.hook ? [record.clip.hook] : []),
+			privacyStatus: "public",
 			madeForKids: false,
 			tokens: record.initialTokens,
+			shortsVideoType: "ORIGINAL",
 		});
 
 		record.uploadResult = uploadResult;

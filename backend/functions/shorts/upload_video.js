@@ -68,12 +68,13 @@ export async function uploadShortVideo({
 	title,
 	description = "",
 	tags = [],
-	privacyStatus = "private",
+	privacyStatus = "public",
 	madeForKids = false,
 	defaultLanguage,
 	categoryId = DEFAULT_CATEGORY_ID,
 	notifySubscribers = false,
 	tokens,
+	shortsVideoType = "ORIGINAL",
 }) {
 	if (!filePath || typeof filePath !== "string") {
 		throw new Error("filePath is required to upload a video.");
@@ -98,6 +99,10 @@ export async function uploadShortVideo({
 	const normalizedPrivacy = ALLOWED_PRIVACY_STATUSES.has(privacyStatus) ? privacyStatus : "private";
 	const normalizedCategoryId =
 		typeof categoryId === "string" && categoryId.trim() ? categoryId.trim() : DEFAULT_CATEGORY_ID;
+	const normalizedShortsVideoType =
+		typeof shortsVideoType === "string" && shortsVideoType.toUpperCase() === "REUSED"
+			? "REUSED"
+			: "ORIGINAL";
 
 	const oauth2Client = buildOAuthClient(tokens);
 	const youtube = google.youtube({ version: "v3", auth: oauth2Client });
@@ -123,6 +128,7 @@ export async function uploadShortVideo({
 		status: {
 			privacyStatus: normalizedPrivacy,
 			selfDeclaredMadeForKids: Boolean(madeForKids),
+			shortsVideoType: normalizedShortsVideoType,
 		},
 	};
 

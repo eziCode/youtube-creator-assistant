@@ -3,14 +3,12 @@ import { RobotIcon, ChartBarIcon, MessageCircleIcon, FilmIcon } from './icons';
 
 interface LandingPageProps {
   onLogin: () => void;
-  onSignUp: () => void;
   // REMOVE-LATER: Prop for temporary dev button.
   onGoToDashboard: () => void;
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ 
   onLogin, 
-  onSignUp, 
   // REMOVE-LATER: Prop for temporary dev button.
   onGoToDashboard 
 }) => {
@@ -23,11 +21,11 @@ const LandingPage: React.FC<LandingPageProps> = ({
             <span className="font-bold text-lg">YouTube AI Assistant</span>
           </div>
           <nav>
-            <button onClick={onLogin} className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors mr-4">
+            <button
+              onClick={onLogin}
+              className="px-4 py-2 rounded-md bg-indigo-600 text-white font-semibold text-sm shadow-sm hover:bg-indigo-700 transition-all"
+            >
               Login
-            </button>
-            <button onClick={onSignUp} className="px-4 py-2 rounded-md bg-indigo-600 text-white font-semibold text-sm shadow-sm hover:bg-indigo-700 transition-all">
-              Sign Up
             </button>
           </nav>
         </div>
@@ -43,8 +41,8 @@ const LandingPage: React.FC<LandingPageProps> = ({
             Get AI-powered analytics, manage comments effortlessly, and generate viral shorts from your long-form content. All in one place.
           </p>
           <div className="mt-8 flex justify-center items-center gap-4">
-            <button onClick={onSignUp} className="px-8 py-3 rounded-md bg-indigo-600 text-white font-semibold text-lg shadow-lg hover:bg-indigo-700 transition-transform hover:scale-105">
-              Get Started Free
+            <button onClick={onLogin} className="px-8 py-3 rounded-md bg-indigo-600 text-white font-semibold text-lg shadow-lg hover:bg-indigo-700 transition-transform hover:scale-105">
+              Sign in with Google
             </button>
             {/* START: Temporary dev button. Delete this button later. */}
             <button onClick={onGoToDashboard} className="px-8 py-3 rounded-md border border-slate-300 bg-white text-slate-700 font-semibold text-lg shadow-sm hover:bg-slate-100 transition-transform hover:scale-105">

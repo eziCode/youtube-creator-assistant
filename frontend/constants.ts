@@ -1,5 +1,8 @@
 import { Video, Comment } from './types';
 
+export const API_BASE_URL =
+  import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+
 export const MOCK_VIDEOS: Video[] = [
   { id: "v1", title: "Why React Still Dominates in 2025", views: 41230, watchTime: 5200, retention: 0.62, likes: 2400, commentsCount: 120 },
   { id: "v2", title: "Top 10 JS Tips in 10 Minutes", views: 33210, watchTime: 4100, retention: 0.55, likes: 1800, commentsCount: 90 },

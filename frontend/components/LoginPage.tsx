@@ -1,16 +1,16 @@
 import React from 'react';
 import { RobotIcon } from './icons';
+import { API_BASE_URL } from '../constants';
 
 interface LoginPageProps {
-  onLoginSuccess: () => void;
-  onNavigateToSignUp: () => void;
   onNavigateToHome: () => void;
+  errorMessage?: string;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigateToSignUp, onNavigateToHome }) => {
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onLoginSuccess();
+const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToHome, errorMessage }) => {
+  const handleGoogleLogin = () => {
+    const sanitizedBaseUrl = API_BASE_URL.replace(/\/$/, '');
+    window.location.href = `${sanitizedBaseUrl}/auth/google`;
   };
 
   return (
@@ -27,50 +27,26 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigateToSignU
                   <RobotIcon />
                 </div>
                 <h2 className="text-2xl font-bold text-slate-800 transition-colors group-hover:text-indigo-600">Welcome Back</h2>
-                <p className="text-slate-500 text-sm mt-1">Login to your YouTube AI Assistant</p>
+                <p className="text-slate-500 text-sm mt-1">Sign in to access your YouTube AI Assistant</p>
             </div>
           </button>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700">Email Address</label>
-              <input 
-                id="email" 
-                name="email" 
-                type="email" 
-                autoComplete="email" 
-                required 
-                placeholder="you@example.com"
-                className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" 
-              />
-            </div>
-            <div>
-              <label htmlFor="password"className="block text-sm font-medium text-slate-700">Password</label>
-              <input 
-                id="password" 
-                name="password" 
-                type="password" 
-                autoComplete="current-password" 
-                required 
-                placeholder="••••••••"
-                className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" 
-              />
-            </div>
-            <div className="pt-2">
-              <button 
-                type="submit" 
-                className="w-full py-2 px-4 rounded-md bg-indigo-600 text-white font-semibold text-sm shadow-sm hover:bg-indigo-700 transition-colors"
-              >
-                Login
-              </button>
-            </div>
-          </form>
+          <div className="space-y-4">
+            {errorMessage && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {errorMessage}
+              </div>
+            )}
+            <button 
+              onClick={handleGoogleLogin}
+              className="w-full py-3 px-4 rounded-md bg-indigo-600 text-white font-semibold text-sm shadow-sm hover:bg-indigo-700 transition-colors"
+            >
+              Continue with Google
+            </button>
+            <p className="text-xs text-slate-500 text-center">
+              You will be redirected to Google to authorize access to your YouTube account.
+            </p>
+          </div>
         </div>
-        <p className="mt-6 text-center text-sm text-slate-500">
-          Don't have an account?{' '}
-          <button onClick={onNavigateToSignUp} className="font-semibold text-indigo-600 hover:text-indigo-500">
-            Sign up
-          </button>
-        </p>
       </div>
     </div>
   );

@@ -231,6 +231,29 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     ];
   }, [selectedVideoTotals]);
 
+  const bestThumbnail = useMemo(() => {
+    const thumbnails = selectedVideo?.thumbnails;
+    if (!thumbnails) return null;
+
+    const values = Object.values(thumbnails ?? {}) as Array<
+      { url?: string; width?: number; height?: number } | undefined
+    >;
+
+    const candidates = values
+      .filter((thumb): thumb is { url?: string; width?: number; height?: number } => Boolean(thumb?.url))
+      .map((thumb) => ({
+        url: thumb?.url ?? '',
+        width: thumb?.width ?? 0,
+        height: thumb?.height ?? 0,
+      }));
+
+    if (!candidates.length) return null;
+
+    return candidates.sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0];
+  }, [selectedVideo?.thumbnails]);
+
+  const videoWatchUrl = selectedVideo ? `https://www.youtube.com/watch?v=${selectedVideo.id}` : null;
+
   const videoMetricsConfig = useMemo(
     () => [
       {
@@ -508,6 +531,91 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             </p>
           ) : (
             <div className="space-y-6">
+              {bestThumbnail && (
+                <div className="rounded-3xl bg-gradient-to-br from-white via-slate-50 to-slate-100 p-[1px] shadow-lg ring-1 ring-slate-200/70">
+                  <div className="flex flex-col gap-5 rounded-3xl bg-white p-5 lg:flex-row lg:items-center lg:gap-8">
+                    <div className="relative w-full overflow-hidden rounded-2xl bg-slate-100 shadow-xl ring-1 ring-slate-200/70 lg:w-[360px]">
+                      <img
+                        src={bestThumbnail.url}
+                        alt={selectedVideo.title}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-slate-900/70 to-transparent px-4 py-3 text-xs text-white/90">
+                        <span className="pr-4 font-medium truncate drop-shadow">{selectedVideo.title}</span>
+                        {videoWatchUrl && (
+                          <a
+                            href={videoWatchUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-800 shadow-sm transition hover:bg-white"
+                          >
+                            Watch
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex w-full flex-col gap-4 text-sm text-slate-600">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Thumbnail preview</p>
+                        <h3 className="mt-2 text-lg font-semibold text-slate-900">
+                          How viewers first encounter this video
+                        </h3>
+                      </div>
+                      <p className="leading-relaxed text-slate-600">
+                        Use this snapshot to sense-check your packaging. The brighter the focal point and title, the more
+                        likely it pops in crowded feeds.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                        {bestThumbnail.width > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-emerald-600 ring-1 ring-emerald-100">
+                            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                            {bestThumbnail.width}×{bestThumbnail.height}
+                          </span>
+                        )}
+                        {selectedVideo.publishedAt && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1 text-sky-600 ring-1 ring-sky-100">
+                            <span className="h-2 w-2 rounded-full bg-sky-400" />
+                            {new Date(selectedVideo.publishedAt).toLocaleDateString()}
+                          </span>
+                        )}
+                        {selectedVideo.channelTitle && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-3 py-1 text-violet-600 ring-1 ring-violet-100">
+                            <span className="h-2 w-2 rounded-full bg-violet-400" />
+                            {selectedVideo.channelTitle}
+                          </span>
+                        )}
+                      </div>
+                      {videoWatchUrl && (
+                        <div className="flex">
+                          <a
+                            href={videoWatchUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                          >
+                            Open on YouTube
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="h-3.5 w-3.5"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M10.75 3a.75.75 0 0 1 .75-.75h5.5A.75.75 0 0 1 17.75 3v5.5a.75.75 0 0 1-1.5 0V4.56l-6.97 6.97a.75.75 0 1 1-1.06-1.06L15.19 3.5h-4.44a.75.75 0 0 1-.75-.75Z"
+                                clipRule="evenodd"
+                              />
+                              <path d="M4.25 5.5A.75.75 0 0 1 5 6.25v9.5h9.5a.75.75 0 0 1 0 1.5h-10A.75.75 0 0 1 3.75 16.5v-10a.75.75 0 0 1 .75-.75Z" />
+                            </svg>
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-slate-700">Video:</span>

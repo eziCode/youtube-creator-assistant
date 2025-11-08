@@ -10,6 +10,14 @@ body {
   min-height: 100vh;
 }
 
+.scroll-snap-container {
+  scrollbar-width: none;
+}
+
+.scroll-snap-container::-webkit-scrollbar {
+  display: none;
+}
+
 .skeleton {
   position: relative;
   overflow: hidden;

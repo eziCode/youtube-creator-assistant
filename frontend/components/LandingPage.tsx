@@ -74,19 +74,81 @@ const testimonials = [
   },
 ];
 
-const LandingPage: React.FC<LandingPageProps> = ({
-  onLogin,
+const sectionMeta = [
+  { id: 'hero', label: 'Intro' },
+  { id: 'features', label: 'Features' },
+  { id: 'workflow', label: 'Workflow' },
+  { id: 'testimonials', label: 'Voices' },
+  { id: 'cta', label: 'Launch' },
+];
+
+const LandingPage: React.FC<LandingPageProps> = ({ 
+  onLogin, 
   // REMOVE-LATER: Prop for temporary dev button.
   onGoToDashboard,
 }) => {
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const [scrollProgress, setScrollProgress] = React.useState(0);
+  const [activeSection, setActiveSection] = React.useState(sectionMeta[0].id);
+
+  React.useEffect(() => {
+    const node = scrollContainerRef.current;
+    if (!node) {
+      return;
+    }
+
+    const handleScroll = () => {
+      const maxScroll = node.scrollHeight - node.clientHeight;
+      const progress = maxScroll > 0 ? node.scrollTop / maxScroll : 0;
+      setScrollProgress(Math.min(Math.max(progress, 0), 1));
+
+      const midpoint = node.scrollTop + node.clientHeight / 2;
+      let closestId = sectionMeta[0].id;
+      let closestDistance = Number.POSITIVE_INFINITY;
+
+      sectionMeta.forEach(({ id }) => {
+        const element = node.querySelector<HTMLElement>(`[data-section="${id}"]`);
+        if (!element) {
+          return;
+        }
+        const elementCenter = element.offsetTop + element.offsetHeight / 2;
+        const distance = Math.abs(midpoint - elementCenter);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestId = id;
+        }
+      });
+
+      setActiveSection(closestId);
+    };
+
+    handleScroll();
+    node.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      node.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  const scrollToSection = (id: string) => {
+    const node = scrollContainerRef.current;
+    const target = node?.querySelector<HTMLElement>(`[data-section="${id}"]`);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   return (
-    <div className="h-screen overflow-x-hidden overflow-y-auto bg-slate-950 text-slate-100 font-sans snap-y snap-mandatory scroll-smooth">
+    <div
+      ref={scrollContainerRef}
+      className="scroll-snap-container h-screen overflow-x-hidden overflow-y-auto bg-slate-950 text-slate-100 font-sans snap-y snap-mandatory scroll-smooth"
+    >
       <header className="fixed top-0 left-0 z-30 w-full">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 md:px-8">
           <div className="flex items-center gap-3">
             <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-indigo-300 shadow-lg shadow-indigo-500/20 backdrop-blur animate-glow">
-              <RobotIcon />
-            </span>
+            <RobotIcon />
+              </span>
             <div>
               <p className="text-sm uppercase tracking-[0.35em] text-white/50">Creator OS</p>
               <p className="text-lg font-semibold text-white">YouTube AI Assistant</p>
@@ -104,7 +166,44 @@ const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </header>
 
-      <main className="relative flex min-h-screen snap-start snap-always flex-col justify-center pt-36 pb-20 md:pt-44 md:pb-28">
+      <div className="fixed right-8 top-1/2 z-40 hidden -translate-y-1/2 flex-col items-center gap-4 md:flex">
+        <div className="relative h-56 w-px rounded-full bg-white/15">
+          <span
+            className="absolute left-1/2 h-3 w-3 -translate-x-1/2 rounded-full border border-white/50 bg-white/40 transition-all duration-300"
+            style={{ top: `${scrollProgress * 100}%`, transform: 'translate(-50%, -50%)' }}
+          />
+        </div>
+        <div className="flex flex-col items-center gap-3">
+          {sectionMeta.map(({ id, label }) => {
+            const isActive = activeSection === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => scrollToSection(id)}
+                className="group flex flex-col items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-white/30 transition hover:text-white/70 focus:outline-none"
+              >
+                <span
+                  className={`flex h-2.5 w-2.5 items-center justify-center rounded-full border border-white/20 transition-all duration-300 group-hover:border-white/40 ${
+                    isActive ? 'scale-110 border-white/70 bg-white/80' : 'bg-white/5'
+                  }`}
+                >
+                  <span className={`h-1 w-1 rounded-full ${isActive ? 'bg-slate-900' : 'bg-white/30'}`} />
+                </span>
+                <span
+                  className={`transition duration-300 ${
+                    isActive ? 'text-white' : 'text-transparent opacity-0 group-hover:text-white/70 group-hover:opacity-100'
+                  }`}
+                >
+                  {label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <main id="hero" data-section="hero" className="relative flex min-h-screen snap-start snap-always flex-col justify-center pt-36 pb-20 md:pt-44 md:pb-28">
         <div className="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_top,_rgba(79,70,229,0.35),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(236,72,153,0.2),_transparent_55%)]" />
         <div className="absolute inset-0 -z-10 bg-[linear-gradient(115deg,rgba(15,23,42,0.95)_0%,rgba(15,23,42,0.8)_40%,rgba(30,58,138,0.35)_100%)] backdrop-blur" />
         <div className="absolute inset-x-0 top-32 -z-10 mx-auto h-[600px] w-[600px] rounded-full bg-indigo-500/30 blur-3xl md:h-[720px] md:w-[720px]" />
@@ -119,10 +218,10 @@ const LandingPage: React.FC<LandingPageProps> = ({
             </span>
             <h1 className="text-4xl font-semibold leading-tight text-white drop-shadow md:text-6xl">
               Turn your channel into a <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-rose-400 animate-gradient-fade">24/7 AI growth engine</span>.
-            </h1>
+</h1>
             <p className="text-lg text-white/70 md:text-xl">
               Imagine having an executive producer, data scientist, and community manager in one. We automate the grind so you can stay obsessed with creating.
-            </p>
+          </p>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <button
                 onClick={onLogin}
@@ -131,17 +230,17 @@ const LandingPage: React.FC<LandingPageProps> = ({
                 <span className="absolute inset-0 rounded-2xl bg-white/20 opacity-0 blur group-hover:opacity-100 transition-opacity duration-300" />
                 <span className="relative flex items-center gap-2">
                   <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-white" />
-                  Sign in with Google
+              Sign in with Google
                 </span>
-              </button>
-              {/* START: Temporary dev button. Delete this button later. */}
+            </button>
+            {/* START: Temporary dev button. Delete this button later. */}
               <button
                 onClick={onGoToDashboard}
                 className="rounded-2xl border border-white/10 bg-white/5 px-8 py-3 text-base font-semibold text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] transition duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:text-white"
               >
                 Explore the Dashboard
-              </button>
-              {/* END: Temporary dev button. */}
+            </button>
+            {/* END: Temporary dev button. */}
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               {[
@@ -210,6 +309,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
 
       <section
         id="features"
+        data-section="features"
         className="relative flex min-h-screen snap-start snap-always flex-col justify-center border-t border-white/5 bg-slate-950/80 py-24 backdrop-blur"
       >
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(129,140,248,0.15),_transparent_55%)]" />
@@ -218,8 +318,8 @@ const LandingPage: React.FC<LandingPageProps> = ({
             <h2 className="text-3xl font-semibold text-white md:text-4xl">Everything dialed-in for creators</h2>
             <p className="mt-4 text-white/60">
               Automations built specifically for video teams. No generic dashboards, no duct-taped spreadsheets.
-            </p>
-          </div>
+  </p>
+</div>
           <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {features.map((feature, index) => (
               <div
@@ -230,7 +330,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
                 <div className={`absolute -right-16 -top-16 h-36 w-36 rounded-full bg-gradient-to-br ${feature.accent} opacity-60 blur-3xl`} />
                 <div className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white">
                   {feature.icon}
-                </div>
+</div>
                 <h3 className="relative mt-6 text-lg font-semibold text-white">{feature.title}</h3>
                 <p className="relative mt-3 text-sm text-white/70">{feature.description}</p>
                 <div className="relative mt-6 h-[2px] w-full rounded-full bg-gradient-to-r from-white/10 to-white/0 opacity-0 transition duration-300 group-hover:opacity-100" />
@@ -242,6 +342,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
 
       <section
         id="workflow"
+        data-section="workflow"
         className="relative flex min-h-screen snap-start snap-always flex-col justify-center border-t border-white/5 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 py-24"
       >
         <div className="absolute inset-x-0 top-0 -z-10 h-32 bg-gradient-to-b from-indigo-500/15 to-transparent blur-3xl" />
@@ -254,7 +355,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
             <p className="mt-4 text-white/60">
               We integrate directly with YouTube, so you get instant insights, auto replies, and Shorts suggestions with nothing to maintain.
             </p>
-          </div>
+            </div>
           <ol className="relative flex-1 space-y-10 border-l border-dashed border-white/10 pl-8">
             <span className="absolute left-1 top-0 h-full w-[3px] rounded-full bg-gradient-to-b from-indigo-500/60 via-purple-500/40 to-transparent" />
             {workflowSteps.map((step, index) => (
@@ -267,11 +368,12 @@ const LandingPage: React.FC<LandingPageProps> = ({
               </li>
             ))}
           </ol>
-        </div>
+              </div>
       </section>
 
       <section
         id="testimonials"
+        data-section="testimonials"
         className="relative flex min-h-screen snap-start snap-always flex-col justify-center border-t border-white/5 bg-slate-950 py-24"
       >
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,_rgba(15,23,42,0.3),_transparent_70%)]" />
@@ -282,7 +384,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
             <p className="mt-4 text-white/60">
               Trusted by storytellers, educators, and studios who want AI copilots—not AI replacements.
             </p>
-          </div>
+            </div>
           <div className="mt-14 grid gap-6 md:grid-cols-3">
             {testimonials.map((testimonial, index) => (
               <figure
@@ -300,12 +402,13 @@ const LandingPage: React.FC<LandingPageProps> = ({
                 </figcaption>
               </figure>
             ))}
-          </div>
-        </div>
+              </div>
+            </div>
       </section>
 
       <section
         id="cta"
+        data-section="cta"
         className="relative flex min-h-screen snap-start snap-always flex-col justify-center border-t border-white/5 bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 py-20"
       >
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.35),_transparent_45%)] blur-3xl" />

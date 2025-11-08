@@ -111,8 +111,19 @@ const App: React.FC = () => {
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100">
-        <div className="text-slate-500 text-sm">Loading...</div>
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 text-slate-100">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-32 left-1/3 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 h-80 w-80 rounded-full bg-fuchsia-500/20 blur-3xl" />
+        </div>
+        <div className="relative flex flex-col items-center gap-4 rounded-3xl border border-white/10 bg-white/5 px-8 py-6 shadow-[0_25px_70px_rgba(15,23,42,0.55)] backdrop-blur-xl">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/10">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-transparent" />
+          </div>
+          <p className="text-sm font-medium uppercase tracking-[0.3em] text-white/60">
+            Syncing workspace
+          </p>
+        </div>
       </div>
     );
   }

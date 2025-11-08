@@ -318,45 +318,62 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 font-sans">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <header className="flex items-center justify-between mb-6 px-2 md:px-0">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">YouTube AI Assistant</h1>
-            <p className="text-sm text-slate-500">Hackathon MVP</p>
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 -left-24 h-[520px] w-[520px] rounded-full bg-indigo-500/25 blur-3xl" />
+        <div className="absolute -bottom-32 right-0 h-[640px] w-[640px] rounded-full bg-fuchsia-500/15 blur-3xl" />
+        <div className="absolute top-1/3 left-1/2 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl" />
+      </div>
+
+      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-10 px-5 py-10 sm:px-8 lg:px-10">
+        <header className="relative z-10 flex flex-col gap-6 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.55)] backdrop-blur-xl md:flex-row md:items-center md:justify-between">
+          <div className="space-y-2">
+            <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.3em] text-white/60">
+              <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-300" />
+              Creator Command Center
+            </p>
+            <h1 className="text-3xl font-semibold text-white drop-shadow-sm">
+              YouTube AI Assistant
+            </h1>
+            <p className="text-sm text-white/60">
+              Track performance, nurture your community, and spin up new content without leaving this workspace.
+            </p>
           </div>
-          <div className="flex items-center gap-4">
+
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
             {user && (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-inner shadow-white/10">
                 {user.picture ? (
                   <img
                     src={user.picture}
                     alt={user.name ?? user.email}
-                    className="h-10 w-10 rounded-full border border-slate-200 object-cover"
+                    className="h-11 w-11 rounded-full border border-white/20 object-cover shadow-lg shadow-indigo-500/20"
                   />
                 ) : (
-                  <div className="h-10 w-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-500/20 text-lg font-semibold text-indigo-200 shadow-inner shadow-indigo-500/20">
                     {(user.name ?? user.email ?? '?').charAt(0).toUpperCase()}
                   </div>
                 )}
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-slate-700">
+                <div className="text-sm">
+                  <p className="font-semibold text-white/90 leading-tight">
                     {user.name ?? user.email}
                   </p>
-                  <p className="text-xs text-slate-500">{user.email}</p>
+                  {user.email && (
+                    <p className="text-white/60">{user.email}</p>
+                  )}
                 </div>
               </div>
             )}
             <button
               onClick={onLogout}
-              className="px-3 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-md hover:bg-slate-100 transition-colors"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_22px_40px_rgba(99,102,241,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_60px_rgba(99,102,241,0.45)] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
             >
               Sign out
             </button>
           </div>
         </header>
 
-        <div className="grid grid-cols-12 gap-8">
+        <div className="grid grid-cols-12 gap-6 lg:gap-8">
           <Sidebar
             activeTab={activeTab}
             setActiveTab={setActiveTab}
@@ -367,8 +384,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             error={videoError}
           />
 
-          <main className="col-span-12 md:col-span-9">
-            <div className="bg-slate-50 rounded-2xl p-6 shadow-sm min-h-[620px]">
+          <main className="col-span-12 lg:col-span-8 xl:col-span-9">
+            <div className="min-h-[640px] rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_25px_80px_rgba(15,23,42,0.55)] backdrop-blur-2xl lg:p-8">
               {renderContent()}
             </div>
           </main>

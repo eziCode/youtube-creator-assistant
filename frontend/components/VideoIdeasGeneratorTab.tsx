@@ -85,24 +85,27 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
     const isExpanded = expandedVideoId === video.id;
 
     return (
-      <div key={video.id} className="border rounded-lg overflow-hidden shadow-sm mb-4">
+      <div
+        key={video.id}
+        className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-[0_18px_45px_rgba(15,23,42,0.45)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/10"
+      >
         <div
-          className="flex items-center cursor-pointer hover:bg-gray-100 transition-colors"
+          className="flex cursor-pointer items-center transition-colors hover:bg-white/10"
           onClick={() => setExpandedVideoId(isExpanded ? null : video.id)}
         >
           {video.thumbnailPath && (
             <img
               src={video.thumbnailPath}
               alt={video.title}
-              className="w-24 h-24 object-cover rounded-l-lg"
+              className="h-24 w-24 rounded-l-2xl object-cover"
             />
           )}
           <div className="p-2 flex-1">
-            <h4 className="font-semibold text-sm">{video.title}</h4>
+            <h4 className="text-sm font-semibold text-white">{video.title}</h4>
           </div>
         </div>
         {isExpanded && (
-          <div className="p-2 bg-gray-50 text-xs whitespace-pre-line">
+          <div className="whitespace-pre-line bg-white/5 p-4 text-xs text-white/70">
             {video.script || "No script available."}
           </div>
         )}
@@ -111,32 +114,32 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
   };
 
   return (
-    <div className="flex flex-col gap-8 overflow-y-auto max-h-[calc(100vh-150px)]">
-      <h2 className="text-xl font-bold">Video Ideas Generator</h2>
+    <div className="flex max-h-[calc(100vh-150px)] flex-col gap-8 overflow-y-auto text-white">
+      <h2 className="text-3xl font-semibold text-white drop-shadow-sm">Video Ideas Generator</h2>
 
       <button
         onClick={handleGenerate}
         disabled={isLoading || !userChannelId}
-        className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+        className="w-fit rounded-full bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_18px_45px_rgba(99,102,241,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(99,102,241,0.45)] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/50 disabled:shadow-none"
       >
         {isLoading ? "Generating..." : "Generate Video & Shorts Ideas"}
       </button>
 
-      {error && <p className="text-red-500">{error}</p>}
+      {error && <p className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-200 shadow-inner shadow-rose-500/10">{error}</p>}
 
       {/* Shorts Ideas Section */}
-      <section>
-        <h3 className="text-lg font-semibold mb-2">Shorts Ideas</h3>
-        {shortsIdeas.length === 0 && !isLoading && <p className="text-sm text-gray-500">No shorts ideas generated yet.</p>}
+      <section className="space-y-3">
+        <h3 className="text-lg font-semibold text-white">Shorts Ideas</h3>
+        {shortsIdeas.length === 0 && !isLoading && <p className="text-sm text-white/60">No shorts ideas generated yet.</p>}
         <div className="flex flex-col">
           {shortsIdeas.map(renderVideoCard)}
         </div>
       </section>
 
       {/* Video Ideas Section */}
-      <section>
-        <h3 className="text-lg font-semibold mb-2">Video Ideas</h3>
-        {videoIdeas.length === 0 && !isLoading && <p className="text-sm text-gray-500">No video ideas generated yet.</p>}
+      <section className="space-y-3">
+        <h3 className="text-lg font-semibold text-white">Video Ideas</h3>
+        {videoIdeas.length === 0 && !isLoading && <p className="text-sm text-white/60">No video ideas generated yet.</p>}
         <div className="flex flex-col">
           {videoIdeas.map(renderVideoCard)}
         </div>

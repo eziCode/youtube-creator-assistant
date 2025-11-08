@@ -21,7 +21,6 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
 
   const handleGenerate = async () => {
-    console.log("No user channel ID provided");
     if (!userChannelId) {
       setError("No YouTube channel connected.");
       return;
@@ -38,6 +37,7 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
       const response = await fetch(`${API_BASE_URL}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // send cookies (session) to backend
         body: JSON.stringify({ channelId: userChannelId }),
       });
 
@@ -47,9 +47,31 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
         throw new Error(data?.error || "Failed to generate video ideas.");
       }
 
-      // Assume backend returns arrays: shorts and videos
-      setShortsIdeas(data.shorts || []);
-      setVideoIdeas(data.videos || []);
+      // Handle newer backend response that may return a single llm_output + thumbnail_path
+      if (data && (data.videos || data.shorts)) {
+        setShortsIdeas(data.shorts || []);
+        setVideoIdeas(data.videos || []);
+      } else if (data && (data.llm_output || data.thumbnail_path)) {
+        // Try to extract a title from the LLM output
+        const llm = data.llm_output || "";
+        const titleMatch = llm.match(/1\.?\s*Catchy video title:\s*\"?([^\"\n]+)\"?/i);
+        const title = titleMatch ? titleMatch[1].trim() : "Generated Video";
+
+        const generated: GeneratedVideo = {
+          id: "generated-1",
+          title,
+          script: llm,
+          thumbnailPrompt: data.thumbnail_prompt || "",
+          thumbnailPath: data.thumbnail_path || "",
+        };
+
+        setShortsIdeas([]);
+        setVideoIdeas([generated]);
+        setExpandedVideoId(generated.id);
+      } else {
+        setShortsIdeas([]);
+        setVideoIdeas([]);
+      }
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "An unknown error occurred.");

@@ -18,14 +18,23 @@ Generate:
 2. A 5-paragraph video script
 3. A prompt for AI thumbnail generation (start with "Thumbnail prompt:")
 `;
+  const model = process.env.LLM_MODEL || process.env.OPENAI_MODEL || "gpt-3.5-turbo";
 
-  const response = await client.chat.completions.create({
-    model: "gemini-1.5",
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.8
-  });
+  try {
+    console.log(`[llm] calling model ${model}`);
 
-  println("LLM response received");
+    const response = await client.chat.completions.create({
+      model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.8,
+    });
 
-  return response.choices[0].message?.content || "";
+    console.log("LLM response received");
+
+    return response.choices?.[0]?.message?.content || "";
+  } catch (err) {
+    console.error("[llm] LLM call failed:", err?.message || err);
+    // Re-throw so upstream can handle and return a useful error
+    throw err;
+  }
 }

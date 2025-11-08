@@ -13,6 +13,7 @@ import {
 import { createCommentResponses } from "../functions/comments/create_comment_responses.js";
 import { respondToComments } from "../functions/comments/respond_to_comments.js";
 import { generateShortsIdeas } from "../functions/shorts/create_shorts.js";
+import { publishShortClip } from "../functions/shorts/publish_shorts.js";
 import authRouter from "./routes/auth.js";
 
 dotenv.config();
@@ -341,6 +342,60 @@ const registerRoutes = () => {
 		} catch (err) {
 			console.error(err);
 			return res.status(500).json({ error: err.message || "failed to generate short ideas" });
+		}
+	});
+
+	app.post("/shorts/publish", async (req, res) => {
+		if (!req.session?.tokens?.accessToken) {
+			return res.status(401).json({ error: "authentication required" });
+		}
+
+		const { videoId, clip, videoTitle } = req.body ?? {};
+
+		console.info("[routes:/shorts/publish] incoming publish request", {
+			videoId,
+			hasClip: Boolean(clip),
+			videoTitle,
+			sessionUser: req.session?.user?.email ?? req.session?.user?.id ?? "unknown",
+		});
+
+		if (!videoId || typeof videoId !== "string") {
+			return res.status(400).json({ error: "videoId is required" });
+		}
+
+		try {
+			const publication = await publishShortClip({
+				videoId,
+				clip,
+				videoTitle: typeof videoTitle === "string" ? videoTitle : "",
+				tokens: req.session.tokens,
+			});
+
+			console.info("[routes:/shorts/publish] publish job created", {
+				videoId,
+				jobId: publication?.jobId,
+				status: publication?.status,
+				shareUrl: publication?.shareUrl,
+			});
+
+			if (req.session && publication?.updatedTokens) {
+				req.session.tokens = {
+					...req.session.tokens,
+					...publication.updatedTokens,
+				};
+
+				await new Promise((resolve, reject) => {
+					req.session.save((err) => {
+						if (err) reject(err);
+						else resolve();
+					});
+				});
+			}
+
+			return res.json({ publication });
+		} catch (err) {
+			console.error(err);
+			return res.status(500).json({ error: err.message || "failed to publish short" });
 		}
 	});
 };

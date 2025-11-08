@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "../constants";
-import { ShortClip } from "../types";
+import { ShortClip, ShortPublicationResult } from "../types";
 
 const normalizeShortIdea = (idea: any): ShortClip | null => {
 	if (!idea || typeof idea !== "object") {
@@ -67,5 +67,47 @@ export const fetchShortIdeas = async (videoId: string, videoTitle?: string): Pro
 		.filter((idea): idea is ShortClip => Boolean(idea));
 
 	return normalized;
+};
+
+export const publishShortClip = async (
+	videoId: string,
+	clip: ShortClip,
+	videoTitle?: string
+): Promise<ShortPublicationResult> => {
+	const baseUrl = API_BASE_URL.replace(/\/$/, "");
+
+	const response = await fetch(`${baseUrl}/shorts/publish`, {
+		method: "POST",
+		credentials: "include",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			videoId,
+			videoTitle,
+			clip,
+		}),
+	});
+
+	const payload = await response.json().catch(() => null);
+
+	if (!response.ok) {
+		const message =
+			(payload &&
+				typeof payload === "object" &&
+				"error" in payload &&
+				typeof payload.error === "string"
+				? payload.error
+				: `Failed to publish short (status ${response.status})`);
+		throw new Error(message);
+	}
+
+	const publication = payload?.publication;
+
+	if (!publication || typeof publication !== "object" || typeof publication.jobId !== "string") {
+		throw new Error("Unexpected response while publishing the short.");
+	}
+
+	return publication as ShortPublicationResult;
 };
 

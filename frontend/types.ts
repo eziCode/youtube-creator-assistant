@@ -49,6 +49,24 @@ export interface ShortClip {
   hook: string;
 }
 
+export type ShortPublicationStatus = "queued" | "processing" | "completed" | "failed";
+
+export interface ShortPublicationResult {
+  jobId: string;
+  status: ShortPublicationStatus;
+  shareUrl?: string;
+  estimatedProcessingSeconds?: number;
+  message?: string;
+  metadata?: {
+    videoId: string;
+    startTime: number;
+    endTime: number;
+    title?: string;
+    hook?: string;
+    reason?: string;
+  };
+}
+
 export interface AuthenticatedUser {
   id: string;
   googleId: string;

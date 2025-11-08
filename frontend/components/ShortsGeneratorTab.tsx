@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ShortClip, Video } from "../types";
-import { fetchShortIdeas } from "../services/shortsService";
-import { exportShort } from "../services/geminiService";
+import { ShortClip, ShortPublicationResult, Video } from "../types";
+import { fetchShortIdeas, publishShortClip } from "../services/shortsService";
 import Card from "./Card";
 
 interface ShortsGeneratorTabProps {
@@ -21,12 +20,15 @@ const formatSeconds = (value: number) => {
 const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }) => {
   const [shorts, setShorts] = useState<ShortClip[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isExporting, setIsExporting] = useState<number | null>(null);
+  const [publishingIndex, setPublishingIndex] = useState<number | null>(null);
+  const [publishResults, setPublishResults] = useState<Record<number, ShortPublicationResult>>({});
   const [notification, setNotification] = useState<string | null>(null);
 
   useEffect(() => {
     setShorts([]);
     setNotification(null);
+    setPublishResults({});
+    setPublishingIndex(null);
   }, [selectedVideo?.id]);
 
   const handleGenerateShorts = async () => {
@@ -56,18 +58,36 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
     }
   };
 
-  const handleExportShort = async (clipIndex: number) => {
-    setIsExporting(clipIndex);
-    setNotification(`Exporting short #${clipIndex + 1}… (simulated FFmpeg job)`);
+  const handlePublishShort = async (clipIndex: number) => {
+    if (!selectedVideo) {
+      setNotification("Select a video before publishing.");
+      return;
+    }
+    const clip = shorts[clipIndex];
+    if (!clip) {
+      setNotification("Unable to locate clip details for publishing.");
+      return;
+    }
+
+    setPublishingIndex(clipIndex);
+    setNotification(`Publishing short #${clipIndex + 1}…`);
 
     try {
-      const resultMessage = await exportShort(clipIndex);
-      setNotification(resultMessage);
+      const publication = await publishShortClip(selectedVideo.id, clip, selectedVideo.title);
+      setPublishResults((prev) => ({
+        ...prev,
+        [clipIndex]: publication,
+      }));
+
+      const statusLabel = publication.status === "completed" ? "published" : "scheduled";
+      setNotification(
+        `Short ${clipIndex + 1} ${statusLabel}. ${publication.shareUrl ? "Preview link ready." : ""}`.trim()
+      );
     } catch (error) {
-      console.error("[shorts] failed to export clip", error);
-      setNotification(error instanceof Error ? error.message : "Failed to export short.");
+      console.error("[shorts] failed to publish clip", error);
+      setNotification(error instanceof Error ? error.message : "Failed to publish short.");
     } finally {
-      setIsExporting(null);
+      setPublishingIndex(null);
     }
   };
 
@@ -91,6 +111,8 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
   const handleClear = () => {
     setShorts([]);
     setNotification("Cleared suggestions.");
+    setPublishResults({});
+    setPublishingIndex(null);
   };
 
   return (
@@ -192,17 +214,40 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
                             {formatSeconds(clip.startTime)} → {formatSeconds(clip.endTime)} ({formatSeconds(duration)})
                           </div>
                           <button
-                            onClick={() => handleExportShort(index)}
-                            disabled={isExporting === index}
+                            onClick={() => handlePublishShort(index)}
+                            disabled={publishingIndex === index}
                             className="text-xs py-1.5 px-3 border border-slate-300 rounded-md font-semibold text-slate-700 bg-white hover:bg-slate-100 disabled:opacity-50 disabled:cursor-wait"
                           >
-                            {isExporting === index ? "Exporting…" : "Export Short"}
+                            {publishingIndex === index ? "Publishing…" : "Publish Short"}
                           </button>
                         </div>
                         <div>
                           <h4 className="font-semibold text-slate-800 text-sm">{clip.title}</h4>
                           <p className="text-xs text-slate-500 mt-1">{clip.reason}</p>
                           <p className="text-xs text-slate-400 mt-1 italic">Hook: {clip.hook}</p>
+                          {publishResults[index] && (
+                            <div className="mt-2 text-xs text-emerald-600 space-y-1">
+                              <div>Status: {publishResults[index].status}</div>
+                              {publishResults[index].shareUrl && (
+                                <div>
+                                  <a
+                                    href={publishResults[index].shareUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-emerald-700 underline"
+                                  >
+                                    Preview clip on YouTube
+                                  </a>
+                                </div>
+                              )}
+                              {publishResults[index].estimatedProcessingSeconds && (
+                                <div>
+                                  Est. processing time:{" "}
+                                  {Math.ceil(publishResults[index].estimatedProcessingSeconds / 60)} min
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </li>

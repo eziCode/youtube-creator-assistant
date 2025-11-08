@@ -43,6 +43,23 @@ const getDeltaBadgeClass = (delta: number | undefined) => {
   return delta > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
 };
 
+const formatWatchTime = (minutes: number) => {
+  if (!Number.isFinite(minutes) || minutes <= 0) return '—';
+
+  if (minutes < 60) {
+    const roundedMinutes = Math.max(1, Math.round(minutes));
+    return `${roundedMinutes} min${roundedMinutes === 1 ? '' : 's'}`;
+  }
+
+  const hours = minutes / 60;
+  const precision = hours >= 10 ? 0 : 1;
+  const normalizedHours =
+    precision === 0 ? Math.round(hours) : Math.round(hours * 10) / 10;
+  const formattedHours = formatNumber(normalizedHours, { maximumFractionDigits: precision });
+  const unit = normalizedHours === 1 ? 'hr' : 'hrs';
+  return `${formattedHours} ${unit}`;
+};
+
 const formatDateLabel = (date?: string) => {
   if (!date) return '';
   const parsed = new Date(date);
@@ -92,9 +109,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       },
       {
         label: 'Watch Time',
-        value: `${formatNumber((totals.estimatedMinutesWatched?.value ?? 0) / 60, {
-          maximumFractionDigits: 1,
-        })} hrs`,
+        value: formatWatchTime(totals.estimatedMinutesWatched?.value ?? 0),
         delta: totals.estimatedMinutesWatched?.delta,
         deltaRatio: totals.estimatedMinutesWatched?.deltaRatio,
       },
@@ -117,7 +132,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       {
         key: 'estimatedMinutesWatched',
         label: 'Watch Time',
-        format: (value: number) => `${formatNumber(value / 60, { maximumFractionDigits: 1 })} hrs`,
+        format: (value: number) => formatWatchTime(value),
       },
       {
         key: 'averageViewDuration',
@@ -222,9 +237,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       },
       {
         label: 'Watch Time',
-        value: `${formatNumber((selectedVideoTotals.estimatedMinutesWatched?.value ?? 0) / 60, {
-          maximumFractionDigits: 1,
-        })} hrs`,
+        value: formatWatchTime(selectedVideoTotals.estimatedMinutesWatched?.value ?? 0),
         delta: selectedVideoTotals.estimatedMinutesWatched?.delta,
         deltaRatio: selectedVideoTotals.estimatedMinutesWatched?.deltaRatio,
       },
@@ -264,7 +277,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       {
         key: 'estimatedMinutesWatched',
         label: 'Watch Time',
-        format: (value: number) => `${formatNumber(value / 60, { maximumFractionDigits: 1 })} hrs`,
+        format: (value: number) => formatWatchTime(value),
       },
       {
         key: 'averageViewDuration',

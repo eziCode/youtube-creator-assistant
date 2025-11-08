@@ -1,13 +1,48 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import LandingPage from './components/LandingPage';
 import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
+import { API_BASE_URL } from './constants';
+import { AuthenticatedUser } from './types';
 
 type Page = 'landing' | 'login' | 'dashboard';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('landing');
   const [authError, setAuthError] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthenticatedUser | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
+
+  const checkSession = useCallback(async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/session`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Session check failed with status ${response.status}`);
+      }
+
+      const data: { authenticated: boolean; user?: AuthenticatedUser } = await response.json();
+
+      if (data.authenticated && data.user) {
+        setUser(data.user);
+        setAuthError(null);
+        setCurrentPage('dashboard');
+        return true;
+      }
+
+      setUser(null);
+      return false;
+    } catch (error) {
+      console.warn('Unable to verify session', error);
+      setUser(null);
+      return false;
+    }
+  }, [apiBaseUrl]);
 
   const navigateToLanding = () => {
     setAuthError(null);
@@ -24,43 +59,63 @@ const App: React.FC = () => {
     setCurrentPage('dashboard');
   };
 
+  const handleLogout = useCallback(async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Logout failed with status ${response.status}`);
+      }
+    } catch (error) {
+      console.warn('Failed to log out cleanly', error);
+    } finally {
+      setUser(null);
+      setCurrentPage('login');
+    }
+  }, [apiBaseUrl]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const pathname = window.location.pathname;
-    const params = new URLSearchParams(window.location.search);
+    const initialize = async () => {
+      const pathname = window.location.pathname;
+      const params = new URLSearchParams(window.location.search);
+      const authStatus = params.get('auth');
 
-    if (pathname === '/auth/success') {
-      const tokens = {
-        accessToken: params.get('access_token') ?? '',
-        refreshToken: params.get('refresh_token') ?? '',
-        scope: params.get('scope') ?? '',
-        tokenType: params.get('token_type') ?? '',
-        expiryDate: params.get('expiry_date') ?? '',
-        idToken: params.get('id_token') ?? '',
-        email: params.get('email') ?? '',
-        name: params.get('name') ?? '',
-      };
+      if (pathname === '/auth/error' || authStatus === 'error') {
+        const message = params.get('message') ?? 'Authentication failed.';
+        setAuthError(message);
+        setUser(null);
+        setCurrentPage('login');
+      } else {
+        const authenticated = await checkSession();
 
-      try {
-        window.sessionStorage.setItem(
-          'youtubeCreatorAssistant.oauth',
-          JSON.stringify(tokens)
-        );
-      } catch (err) {
-        console.warn('Unable to cache OAuth tokens in session storage', err);
+        if (!authenticated && (pathname === '/auth/success' || authStatus === 'success')) {
+          setAuthError('Authentication completed, but the session could not be established. Please try again.');
+          setCurrentPage('login');
+        }
       }
 
       window.history.replaceState(null, '', '/');
-      setAuthError(null);
-      setCurrentPage('dashboard');
-    } else if (pathname === '/auth/error') {
-      const message = params.get('message') ?? 'Authentication failed.';
-      window.history.replaceState(null, '', '/');
-      setAuthError(message);
-      setCurrentPage('login');
-    }
-  }, []);
+      setIsInitializing(false);
+    };
+
+    void initialize();
+  }, [checkSession]);
+
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+        <div className="text-slate-500 text-sm">Loading...</div>
+      </div>
+    );
+  }
 
   switch (currentPage) {
     case 'landing':
@@ -78,7 +133,7 @@ const App: React.FC = () => {
         />
       );
     case 'dashboard':
-      return <Dashboard />;
+      return <Dashboard user={user} onLogout={handleLogout} />;
     default:
       return (
         <LandingPage

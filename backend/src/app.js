@@ -6,6 +6,7 @@ import session from "express-session";
 import MongoStore from "connect-mongo";
 import { retrieveComments } from "../functions/comments/retrieve_comments.js";
 import { getVideos } from "../functions/dashboard/get_videos.js";
+import { createCommentResponses } from "../functions/comments/create_comment_responses.js";
 import { respondToComments } from "../functions/comments/respond_to_comments.js";
 import authRouter from "./routes/auth.js";
 
@@ -57,17 +58,39 @@ const registerRoutes = () => {
     });
 
 	app.post("/comments/respond", async (req, res) => {
-		const responses = req.body?.responses;
-		if (!responses || typeof responses !== "object" || Array.isArray(responses)) {
-			return res.status(400).json({ error: "responses body must be an object of commentId -> responseText" });
-		}
+		const { responses: providedResponses, comments: providedComments, videoId, maxResponses } = req.body ?? {};
 
 		if (!req.session?.tokens?.accessToken) {
 			return res.status(401).json({ error: "authentication required" });
 		}
 
+		let responseMap = null;
+
 		try {
-			const result = await respondToComments(responses, req.session.tokens);
+			if (providedResponses && typeof providedResponses === "object" && !Array.isArray(providedResponses)) {
+				responseMap = providedResponses;
+			} else {
+				let sourceComments = Array.isArray(providedComments) ? providedComments : null;
+
+				if (!sourceComments) {
+					if (!videoId || typeof videoId !== "string") {
+						return res.status(400).json({
+							error:
+								"Provide either a responses map, an array of comments, or a videoId to auto-generate responses.",
+						});
+					}
+
+					sourceComments = await retrieveComments(videoId);
+				}
+
+				responseMap = await createCommentResponses(sourceComments, { maxResponses });
+			}
+
+			if (!responseMap || typeof responseMap !== "object" || Array.isArray(responseMap) || Object.keys(responseMap).length === 0) {
+				return res.status(400).json({ error: "No responses available to post" });
+			}
+
+			const result = await respondToComments(responseMap, req.session.tokens);
 
 			if (req.session && result.updatedTokens) {
 				req.session.tokens = {

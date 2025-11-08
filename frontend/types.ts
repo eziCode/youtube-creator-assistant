@@ -42,9 +42,42 @@ export interface Comment {
 }
 
 export interface ShortClip {
-  start: number;
-  end: number;
+  startTime: number;
+  endTime: number;
+  title: string;
   reason: string;
+  hook: string;
+}
+
+export type ShortDownloadStatus = "pending" | "downloading" | "completed" | "cancelled" | "failed";
+
+export interface ShortDownload {
+  id: string;
+  videoId: string;
+  status: ShortDownloadStatus;
+  fileId?: string | null;
+  filename?: string | null;
+  fileLength?: number | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+}
+
+export type ShortPublicationStatus = "queued" | "processing" | "completed" | "failed";
+
+export interface ShortPublicationResult {
+  jobId: string;
+  status: ShortPublicationStatus;
+  shareUrl?: string;
+  estimatedProcessingSeconds?: number;
+  message?: string;
+  metadata?: {
+    videoId: string;
+    startTime: number;
+    endTime: number;
+    title?: string;
+    hook?: string;
+    reason?: string;
+  };
 }
 
 export interface AuthenticatedUser {

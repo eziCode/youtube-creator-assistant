@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import session from "express-session";
 import MongoStore from "connect-mongo";
+import path from "path";
 import generateRouter from "./routes/generate.js";
 
 import { retrieveComments } from "../functions/comments/retrieve_comments.js";
@@ -15,11 +16,81 @@ import {
 import { createCommentResponses } from "../functions/comments/create_comment_responses.js";
 import { respondToComments } from "../functions/comments/respond_to_comments.js";
 import { generateShortsIdeas } from "../functions/shorts/create_shorts.js";
+import {
+	startDownload as startShortDownload,
+	cancelDownload as cancelShortDownload,
+	getDownload as getShortDownload,
+	DownloadStatus as DownloadJobStatus,
+	getActiveDownloadForSession,
+} from "../functions/shorts/download_manager.js";
+import {
+	createShortJob,
+	getJob as getShortJob,
+} from "../functions/shorts/shorts_job_manager.js";
 import authRouter from "./routes/auth.js";
 
 dotenv.config();
 
 const app = express();
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const formatDate = (date) => {
+	if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+		return null;
+	}
+	return date.toISOString().slice(0, 10);
+};
+
+const buildCustomDateRange = (startIso, endIso) => {
+	if (typeof startIso !== "string" || typeof endIso !== "string") {
+		return null;
+	}
+
+	const start = new Date(`${startIso}T00:00:00Z`);
+	const end = new Date(`${endIso}T23:59:59Z`);
+
+	if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+		return null;
+	}
+
+	if (start > end) {
+		return null;
+	}
+
+	const normalizedStart = new Date(startIso);
+	const normalizedEnd = new Date(endIso);
+	normalizedStart.setUTCHours(0, 0, 0, 0);
+	normalizedEnd.setUTCHours(0, 0, 0, 0);
+
+	const diffDays = Math.floor((normalizedEnd.getTime() - normalizedStart.getTime()) / DAY_MS) + 1;
+
+	if (!Number.isFinite(diffDays) || diffDays <= 0) {
+		return null;
+	}
+
+	const previousEnd = new Date(normalizedStart.getTime() - DAY_MS);
+	const previousStart = new Date(previousEnd.getTime() - (diffDays - 1) * DAY_MS);
+
+	const formattedCurrentStart = formatDate(normalizedStart);
+	const formattedCurrentEnd = formatDate(normalizedEnd);
+	const formattedPreviousStart = formatDate(previousStart);
+	const formattedPreviousEnd = formatDate(previousEnd);
+
+	if (!formattedCurrentStart || !formattedCurrentEnd || !formattedPreviousStart || !formattedPreviousEnd) {
+		return null;
+	}
+
+	return {
+		current: {
+			startDate: formattedCurrentStart,
+			endDate: formattedCurrentEnd,
+		},
+		previous: {
+			startDate: formattedPreviousStart,
+			endDate: formattedPreviousEnd,
+		},
+	};
+};
 
 const FRONTEND_ORIGIN = process.env.FRONTEND_URL || "http://localhost:5173";
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -51,6 +122,145 @@ app.use(
 const registerRoutes = () => {
 	app.use("/auth", authRouter);
 	app.use("/generate", generateRouter);
+
+	app.post("/shorts/download", async (req, res) => {
+		if (!req.session?.tokens?.accessToken) {
+			return res.status(401).json({ error: "authentication required" });
+		}
+
+		const { videoId } = req.body ?? {};
+
+		if (!videoId || typeof videoId !== "string") {
+			return res.status(400).json({ error: "videoId is required" });
+		}
+
+		try {
+			const normalizeDownload = (download) => {
+				if (!download) return null;
+				const { sessionId, ...rest } = download;
+				return rest;
+			};
+
+			const previousDownloadId = req.session?.activeShortDownloadId;
+			if (previousDownloadId) {
+				const existing = getShortDownload(previousDownloadId);
+				if (
+					existing &&
+					existing.sessionId === req.sessionID &&
+					existing.videoId === videoId &&
+					existing.status !== DownloadJobStatus.FAILED &&
+					existing.status !== DownloadJobStatus.CANCELLED
+				) {
+					return res.json({ download: normalizeDownload(existing) });
+				}
+				await cancelShortDownload(previousDownloadId, { deleteFile: true });
+			} else {
+				const activeForSession = getActiveDownloadForSession(req.sessionID);
+				if (
+					activeForSession &&
+					activeForSession.videoId === videoId &&
+					activeForSession.status !== DownloadJobStatus.FAILED &&
+					activeForSession.status !== DownloadJobStatus.CANCELLED
+				) {
+					const existing = getShortDownload(activeForSession.id);
+					if (existing) {
+						req.session.activeShortDownloadId = existing.id;
+						req.session.activeShortVideoId = videoId;
+
+						await new Promise((resolve, reject) => {
+							req.session.save((err) => {
+								if (err) reject(err);
+								else resolve();
+							});
+						});
+
+						return res.json({ download: normalizeDownload(existing) });
+					}
+				}
+			}
+
+			const download = await startShortDownload({
+				videoId,
+				sessionId: req.sessionID,
+			});
+
+			req.session.activeShortDownloadId = download.id;
+			req.session.activeShortVideoId = videoId;
+
+			await new Promise((resolve, reject) => {
+				req.session.save((err) => {
+					if (err) reject(err);
+					else resolve();
+				});
+			});
+
+			return res.json({ download: normalizeDownload(getShortDownload(download.id) ?? download) });
+		} catch (err) {
+			console.error("[routes:/shorts/download] failed to start download", err);
+			return res.status(500).json({ error: err.message || "failed to start download" });
+		}
+	});
+
+	app.delete("/shorts/download/:downloadId", async (req, res) => {
+		if (!req.session?.tokens?.accessToken) {
+			return res.status(401).json({ error: "authentication required" });
+		}
+
+		const { downloadId } = req.params;
+		const purge = req.query?.purge === "true" || req.query?.purge === "1";
+
+		if (!downloadId) {
+			return res.status(400).json({ error: "downloadId is required" });
+		}
+
+		const download = getShortDownload(downloadId);
+		if (!download) {
+			return res.status(404).json({ error: "download not found" });
+		}
+
+		if (download.sessionId !== req.sessionID) {
+			return res.status(403).json({ error: "not authorized to modify this download" });
+		}
+
+		try {
+			await cancelShortDownload(downloadId, { deleteFile: purge });
+
+			if (req.session.activeShortDownloadId === downloadId) {
+				delete req.session.activeShortDownloadId;
+				delete req.session.activeShortVideoId;
+
+				await new Promise((resolve, reject) => {
+					req.session.save((err) => {
+						if (err) reject(err);
+						else resolve();
+					});
+				});
+			}
+
+			return res.json({ success: true });
+		} catch (err) {
+			console.error("[routes:/shorts/download] failed to cancel download", err);
+			return res.status(500).json({ error: err.message || "failed to cancel download" });
+		}
+	});
+
+	app.get("/shorts/download/:downloadId", (req, res) => {
+		if (!req.session?.tokens?.accessToken) {
+			return res.status(401).json({ error: "authentication required" });
+		}
+
+		const { downloadId } = req.params;
+		if (!downloadId) {
+			return res.status(400).json({ error: "downloadId is required" });
+		}
+
+		const download = getShortDownload(downloadId);
+		if (!download || download.sessionId !== req.sessionID) {
+			return res.status(404).json({ error: "download not found" });
+		}
+
+		return res.json({ download });
+	});
 
 	app.get("/retrieve-comments", async (req, res) => {
 		const videoId = req.query.videoId;
@@ -158,8 +368,17 @@ const registerRoutes = () => {
 
 		const channelId = req.session?.user?.channelId;
 		const rangeDaysRaw = req.query?.rangeDays;
+		const startDateRaw = req.query?.startDate;
+		const endDateRaw = req.query?.endDate;
+		const hasCustomRange = typeof startDateRaw === "string" && typeof endDateRaw === "string";
+		const dateRange = hasCustomRange ? buildCustomDateRange(startDateRaw, endDateRaw) : undefined;
+
+		if (hasCustomRange && !dateRange) {
+			return res.status(400).json({ error: "Invalid custom date range" });
+		}
+
 		const rangeDays =
-			rangeDaysRaw && Number.isFinite(Number(rangeDaysRaw))
+			!hasCustomRange && rangeDaysRaw && Number.isFinite(Number(rangeDaysRaw))
 				? Number(rangeDaysRaw)
 				: undefined;
 
@@ -172,6 +391,7 @@ const registerRoutes = () => {
 				channelId,
 				tokens: req.session.tokens,
 				rangeDays,
+				dateRange,
 			});
 
 			if (req.session && result.updatedTokens) {
@@ -203,8 +423,17 @@ const registerRoutes = () => {
 		const channelId = req.session?.user?.channelId;
 		const { videoId } = req.query;
 		const rangeDaysRaw = req.query?.rangeDays;
+		const startDateRaw = req.query?.startDate;
+		const endDateRaw = req.query?.endDate;
+		const hasCustomRange = typeof startDateRaw === "string" && typeof endDateRaw === "string";
+		const dateRange = hasCustomRange ? buildCustomDateRange(startDateRaw, endDateRaw) : undefined;
+
+		if (hasCustomRange && !dateRange) {
+			return res.status(400).json({ error: "Invalid custom date range" });
+		}
+
 		const rangeDays =
-			rangeDaysRaw && Number.isFinite(Number(rangeDaysRaw))
+			!hasCustomRange && rangeDaysRaw && Number.isFinite(Number(rangeDaysRaw))
 				? Number(rangeDaysRaw)
 				: undefined;
 
@@ -222,6 +451,7 @@ const registerRoutes = () => {
 				videoId,
 				tokens: req.session.tokens,
 				rangeDays,
+				dateRange,
 			});
 
 			if (req.session && result.updatedTokens) {
@@ -278,6 +508,85 @@ const registerRoutes = () => {
 			console.error(err);
 			return res.status(500).json({ error: err.message || "failed to generate short ideas" });
 		}
+	});
+
+	app.post("/shorts/publish", async (req, res) => {
+		if (!req.session?.tokens?.accessToken) {
+			return res.status(401).json({ error: "authentication required" });
+		}
+
+		const { videoId, clip, videoTitle, downloadId } = req.body ?? {};
+
+		console.info("[routes:/shorts/publish] incoming publish request", {
+			videoId,
+			hasClip: Boolean(clip),
+			videoTitle,
+			downloadId,
+			sessionUser: req.session?.user?.email ?? req.session?.user?.id ?? "unknown",
+		});
+
+		if (!videoId || typeof videoId !== "string") {
+			return res.status(400).json({ error: "videoId is required" });
+		}
+
+		if (!downloadId || typeof downloadId !== "string") {
+			return res.status(400).json({ error: "downloadId is required" });
+		}
+
+		const download = getShortDownload(downloadId);
+		if (!download) {
+			return res.status(400).json({ error: "download not found for this request" });
+		}
+
+		if (download.sessionId !== req.sessionID) {
+			return res.status(403).json({ error: "not authorized to use this download" });
+		}
+
+		if (download.videoId !== videoId) {
+			return res.status(400).json({ error: "download does not match requested videoId" });
+		}
+
+		try {
+			const publication = createShortJob({
+				downloadId,
+				videoId,
+				clip,
+				videoTitle: typeof videoTitle === "string" ? videoTitle : "",
+				tokens: req.session.tokens,
+				sessionId: req.sessionID,
+				sessionStore: req.sessionStore,
+			});
+
+			console.info("[routes:/shorts/publish] publish job created", {
+				videoId,
+				jobId: publication?.jobId,
+				status: publication?.status,
+				shareUrl: publication?.shareUrl,
+			});
+
+			return res.json({ publication });
+		} catch (err) {
+			console.error(err);
+			return res.status(500).json({ error: err.message || "failed to publish short" });
+		}
+	});
+
+	app.get("/shorts/publish/:jobId", (req, res) => {
+		if (!req.session?.tokens?.accessToken) {
+			return res.status(401).json({ error: "authentication required" });
+		}
+
+		const { jobId } = req.params;
+		if (!jobId) {
+			return res.status(400).json({ error: "jobId is required" });
+		}
+
+		const publication = getShortJob(jobId, { sessionId: req.sessionID });
+		if (!publication) {
+			return res.status(404).json({ error: "job not found" });
+		}
+
+		return res.json({ publication });
 	});
 };
 

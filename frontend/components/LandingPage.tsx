@@ -17,7 +17,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
       <header className="absolute top-0 left-0 w-full z-10 p-4 md:p-6">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 bg-indigo-100 rounded-full text-indigo-600"><RobotIcon /></span>
+            <span className="p-1.5 bg-indigo-100 rounded-full text-indigo-600 animate-bounce-slow"><RobotIcon /></span>
             <span className="font-bold text-lg">YouTube AI Assistant</span>
           </div>
           <nav>
@@ -31,12 +31,13 @@ const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </header>
 
-      <main className="relative pt-32 pb-20 md:pt-48 md:pb-28">
-        <div className="absolute inset-0 -z-10 h-full w-full bg-white bg-[linear-gradient(to_right,#f0f0f0_1px,transparent_1px),linear-gradient(to_bottom,#f0f0f0_1px,transparent_1px)] bg-[size:6rem_4rem]"><div className="absolute bottom-0 left-0 right-0 top-0 bg-[radial-gradient(circle_500px_at_50%_200px,#C9D6FF,#E2E8F0)]"></div></div>
+        <main className="relative pt-32 pb-20 md:pt-48 md:pb-28">
+        <div className="absolute inset-0 -z-10 h-full w-full bg-white bg-[linear-gradient(to_right,#f0f0f0_1px,transparent_1px),linear-gradient(to_bottom,#f0f0f0_1px,transparent_1px)] bg-[size:6rem_4rem]">
+    <div className="absolute bottom-0 left-0 right-0 top-0 bg-[radial-gradient(circle_500px_at_50%_200px,#C9D6FF,#E2E8F0)]"></div></div>
         <div className="max-w-4xl mx-auto text-center px-4">
-          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-slate-900">
-            Supercharge Your YouTube Channel with AI
-          </h1>
+          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-fuchsia-500 to-indigo-500 animate-gradient-fade">
+  Supercharge Your YouTube Channel with AI
+</h1>
           <p className="mt-6 text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
             Get AI-powered analytics, manage comments effortlessly, and generate viral shorts from your long-form content. All in one place.
           </p>

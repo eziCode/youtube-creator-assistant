@@ -125,16 +125,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   const metricsConfig = useMemo(
     () => [
       {
-        key: 'views',
-        label: 'Views',
-        format: (value: number) => formatNumber(value),
-      },
-      {
-        key: 'estimatedMinutesWatched',
-        label: 'Watch Time',
-        format: (value: number) => formatWatchTime(value),
-      },
-      {
         key: 'averageViewDuration',
         label: 'Avg View Duration',
         format: (value: number) => formatDuration(value),
@@ -143,11 +133,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         key: 'averageViewPercentage',
         label: 'Avg View %',
         format: (value: number) => `${value.toFixed(1)}%`,
-      },
-      {
-        key: 'netSubscribers',
-        label: 'Net Subscribers',
-        format: (value: number) => formatNumber(value, { signDisplay: 'always' }),
       },
       {
         key: 'likes',
@@ -162,6 +147,16 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       {
         key: 'shares',
         label: 'Shares',
+        format: (value: number) => formatNumber(value),
+      },
+      {
+        key: 'subscribersGained',
+        label: 'Subs Gained',
+        format: (value: number) => formatNumber(value),
+      },
+      {
+        key: 'subscribersLost',
+        label: 'Subs Lost',
         format: (value: number) => formatNumber(value),
       },
     ],
@@ -269,16 +264,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
   const videoMetricsConfig = useMemo(
     () => [
-      {
-        key: 'views',
-        label: 'Views',
-        format: (value: number) => formatNumber(value),
-      },
-      {
-        key: 'estimatedMinutesWatched',
-        label: 'Watch Time',
-        format: (value: number) => formatWatchTime(value),
-      },
       {
         key: 'averageViewDuration',
         label: 'Avg View Duration',

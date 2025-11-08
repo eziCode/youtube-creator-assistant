@@ -210,18 +210,9 @@ async function getVideoTranscript(videoId, tokens, { preferredLanguages = DEFAUL
 		throw new Error("videoId is required.");
 	}
 
-	const normalizedPreferredLanguages = Array.isArray(preferredLanguages)
-		? preferredLanguages.map((lang) => lang.toLowerCase())
-		: [];
-
 	if (Transcript) {
 		const cachedTranscript = await Transcript.findOne({ videoId }).lean();
-		if (
-			cachedTranscript?.transcript?.length > 0 &&
-			(normalizedPreferredLanguages.length === 0 ||
-				!cachedTranscript.language ||
-				normalizedPreferredLanguages.includes(cachedTranscript.language.toLowerCase()))
-		) {
+		if (cachedTranscript?.transcript?.length > 0) {
 			const cachedDuration =
 				typeof cachedTranscript.videoDurationSeconds === "number"
 					? cachedTranscript.videoDurationSeconds
@@ -255,7 +246,14 @@ async function getVideoTranscript(videoId, tokens, { preferredLanguages = DEFAUL
 			throw new Error("No captions available for this video. Please ensure captions are published or auto-generated.");
 		}
 
-		const selectedTrack = selectCaptionTrack(tracks, preferredLanguages);
+		const normalizedPreferredLanguages = Array.isArray(preferredLanguages)
+			? preferredLanguages.map((lang) => lang.toLowerCase())
+			: [];
+
+		const selectedTrack = selectCaptionTrack(
+			tracks,
+			normalizedPreferredLanguages.length > 0 ? normalizedPreferredLanguages : preferredLanguages
+		);
 		if (!selectedTrack?.id) {
 			throw new Error("Failed to select a caption track for this video.");
 		}

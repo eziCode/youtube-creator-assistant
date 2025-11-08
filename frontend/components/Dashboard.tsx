@@ -25,6 +25,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [videoAnalytics, setVideoAnalytics] = useState<VideoAnalyticsOverview | null>(null);
   const [isLoadingVideoAnalytics, setIsLoadingVideoAnalytics] = useState<boolean>(false);
   const [videoAnalyticsError, setVideoAnalyticsError] = useState<string | null>(null);
+  const [analyticsRangeDays, setAnalyticsRangeDays] = useState<number>(28);
 
   const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
 
@@ -118,7 +119,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       setAnalyticsError(null);
 
       try {
-        const response = await fetch(`${apiBaseUrl}/dashboard/analytics/overview`, {
+        const params = new URLSearchParams({ rangeDays: String(analyticsRangeDays) });
+        const response = await fetch(`${apiBaseUrl}/dashboard/analytics/overview?${params.toString()}`, {
           credentials: 'include',
           signal: controller.signal,
         });
@@ -153,7 +155,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     return () => {
       controller.abort();
     };
-  }, [apiBaseUrl, user?.channelId]);
+  }, [apiBaseUrl, user?.channelId, analyticsRangeDays]);
 
   useEffect(() => {
     if (!user?.channelId || !selectedVideo?.id) {
@@ -174,13 +176,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       setVideoAnalyticsError(null);
 
       try {
-        const response = await fetch(
-          `${apiBaseUrl}/dashboard/analytics/video?videoId=${encodeURIComponent(selectedVideo.id)}`,
-          {
-            credentials: 'include',
-            signal: controller.signal,
-          }
-        );
+        const params = new URLSearchParams({
+          videoId: selectedVideo.id,
+          rangeDays: String(analyticsRangeDays),
+        });
+        const response = await fetch(`${apiBaseUrl}/dashboard/analytics/video?${params.toString()}`, {
+          credentials: 'include',
+          signal: controller.signal,
+        });
 
         const payload = await response.json().catch(() => null);
 
@@ -212,7 +215,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     return () => {
       controller.abort();
     };
-  }, [apiBaseUrl, user?.channelId, selectedVideo?.id]);
+  }, [apiBaseUrl, user?.channelId, selectedVideo?.id, analyticsRangeDays]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -229,6 +232,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             videoError={videoError}
             analyticsError={analyticsError}
             videoAnalyticsError={videoAnalyticsError}
+            analyticsRangeDays={analyticsRangeDays}
+            onChangeRangeDays={setAnalyticsRangeDays}
           />
         );
       case 'comments':

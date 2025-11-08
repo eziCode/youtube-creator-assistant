@@ -87,14 +87,23 @@ const buildMetricsPayload = (current, previous) => {
 	return totals;
 };
 
-const defaultDateRanges = () => {
+const clampRangeDays = (value) => {
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed) || parsed <= 0) {
+		return 28;
+	}
+	return Math.min(Math.max(Math.round(parsed), 1), 180);
+};
+
+const createDateRanges = (rangeDays = 28) => {
+	const clamped = clampRangeDays(rangeDays);
 	const currentPeriodEnd = new Date(Date.now() - DAY_MS);
 	const currentPeriodStart = new Date(
-		currentPeriodEnd.getTime() - 27 * DAY_MS
+		currentPeriodEnd.getTime() - (clamped - 1) * DAY_MS
 	);
 	const previousPeriodEnd = new Date(currentPeriodStart.getTime() - DAY_MS);
 	const previousPeriodStart = new Date(
-		previousPeriodEnd.getTime() - 27 * DAY_MS
+		previousPeriodEnd.getTime() - (clamped - 1) * DAY_MS
 	);
 
 	return {
@@ -109,12 +118,18 @@ const defaultDateRanges = () => {
 	};
 };
 
-const getChannelAnalyticsOverview = async ({ channelId, tokens, dateRange }) => {
+const getChannelAnalyticsOverview = async ({
+	channelId,
+	tokens,
+	dateRange,
+	rangeDays,
+}) => {
 	if (!channelId) {
 		throw new Error("channelId is required to retrieve analytics");
 	}
 
-	const { current, previous } = dateRange ?? defaultDateRanges();
+	const ranges = dateRange ?? createDateRanges(rangeDays);
+	const { current, previous } = ranges;
 
 	const oauth2Client = buildOAuthClient(tokens);
 	const youtubeAnalytics = google.youtubeAnalytics({
@@ -188,12 +203,9 @@ const getChannelAnalyticsOverview = async ({ channelId, tokens, dateRange }) => 
 	};
 };
 
-const getVideoAnalyticsOverview = async ({
-	channelId,
-	videoId,
-	tokens,
-	dateRange,
-}) => {
+const getVideoAnalyticsOverview = async (params) => {
+	const { channelId, videoId, tokens, dateRange, rangeDays } = params ?? {};
+
 	if (!channelId) {
 		throw new Error("channelId is required to retrieve video analytics");
 	}
@@ -202,7 +214,8 @@ const getVideoAnalyticsOverview = async ({
 		throw new Error("videoId is required to retrieve video analytics");
 	}
 
-	const { current, previous } = dateRange ?? defaultDateRanges();
+	const ranges = dateRange ?? createDateRanges(rangeDays);
+	const { current, previous } = ranges;
 
 	const oauth2Client = buildOAuthClient(tokens);
 	const youtubeAnalytics = google.youtubeAnalytics({

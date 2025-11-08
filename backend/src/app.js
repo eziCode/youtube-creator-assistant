@@ -141,6 +141,11 @@ const registerRoutes = () => {
 		}
 
 		const channelId = req.session?.user?.channelId;
+		const rangeDaysRaw = req.query?.rangeDays;
+		const rangeDays =
+			rangeDaysRaw && Number.isFinite(Number(rangeDaysRaw))
+				? Number(rangeDaysRaw)
+				: undefined;
 
 		if (!channelId) {
 			return res.status(400).json({ error: "channelId unavailable for this user" });
@@ -150,6 +155,7 @@ const registerRoutes = () => {
 			const result = await getChannelAnalyticsOverview({
 				channelId,
 				tokens: req.session.tokens,
+				rangeDays,
 			});
 
 			if (req.session && result.updatedTokens) {
@@ -180,6 +186,11 @@ const registerRoutes = () => {
 
 		const channelId = req.session?.user?.channelId;
 		const { videoId } = req.query;
+		const rangeDaysRaw = req.query?.rangeDays;
+		const rangeDays =
+			rangeDaysRaw && Number.isFinite(Number(rangeDaysRaw))
+				? Number(rangeDaysRaw)
+				: undefined;
 
 		if (!channelId) {
 			return res.status(400).json({ error: "channelId unavailable for this user" });
@@ -194,6 +205,7 @@ const registerRoutes = () => {
 				channelId,
 				videoId,
 				tokens: req.session.tokens,
+				rangeDays,
 			});
 
 			if (req.session && result.updatedTokens) {

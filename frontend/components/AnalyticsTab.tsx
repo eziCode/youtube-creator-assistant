@@ -60,15 +60,6 @@ const formatWatchTime = (minutes: number) => {
   return `${formattedHours} ${unit}`;
 };
 
-const formatDateLabel = (date?: string) => {
-  if (!date) return '';
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-};
-
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   videos,
   selectedVideo,
@@ -142,21 +133,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       {
         key: 'comments',
         label: 'Comments',
-        format: (value: number) => formatNumber(value),
-      },
-      {
-        key: 'shares',
-        label: 'Shares',
-        format: (value: number) => formatNumber(value),
-      },
-      {
-        key: 'subscribersGained',
-        label: 'Subs Gained',
-        format: (value: number) => formatNumber(value),
-      },
-      {
-        key: 'subscribersLost',
-        label: 'Subs Lost',
         format: (value: number) => formatNumber(value),
       },
     ],
@@ -382,14 +358,14 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             }
           >
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {isLoadingChannel && channelHeroMetrics.length === 0
+              {isLoadingChannel
                 ? Array.from({ length: 3 }).map((_, idx) => (
                     <div
                       key={`channel-pulse-skeleton-${idx}`}
                       className="rounded-xl border border-slate-200 px-4 py-5 shadow-sm flex flex-col gap-3 bg-white"
                     >
                       <div className="skeleton skeleton-xs w-20 rounded-full" />
-                      <div className="skeleton skeleton-xl w-24" />
+                      <div className="skeleton skeleton-xl w-28" />
                       <div className="flex items-center gap-2">
                         <div className="skeleton skeleton-chip w-20" />
                         <div className="skeleton skeleton-xs flex-1 rounded-full" />
@@ -434,9 +410,14 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           <Card
             title="Channel Snapshot"
             description={
-              previousPeriod
-                ? `Comparing ${currentPeriod?.startDate} → ${currentPeriod?.endDate} against ${previousPeriod.startDate} → ${previousPeriod.endDate}`
-                : undefined
+              isLoadingChannel ? (
+                <div className="skeleton skeleton-sm w-52" />
+              ) : previousPeriod ? (
+                <span>
+                  Comparing {currentPeriod?.startDate} → {currentPeriod?.endDate} against {previousPeriod.startDate} →{' '}
+                  {previousPeriod.endDate}
+                </span>
+              ) : undefined
             }
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -445,7 +426,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 return (
                   <div key={key} className="space-y-2">
                     <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
-                    {isLoadingChannel && !metric ? (
+                    {isLoadingChannel ? (
                       <div className="skeleton skeleton-lg w-24" />
                     ) : metric ? (
                       <>
@@ -500,33 +481,24 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         <Card
           title="Selected Video Overview"
           description={
-            selectedVideo
-              ? videoPeriod
-                ? `${selectedVideo.title} · ${videoPeriod.startDate} → ${videoPeriod.endDate}`
-                : selectedVideo.title
-              : 'Pick a published video from the sidebar to explore its performance.'
+            !selectedVideo
+              ? 'Pick a published video from the sidebar to explore its performance.'
+              : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-slate-500">{selectedVideo.title}</span>
+                    {isLoadingVideoAnalytics ? (
+                      <div className="skeleton skeleton-xs w-32" />
+                    ) : videoPeriod ? (
+                      <span className="text-slate-500">
+                        {videoPeriod.startDate} → {videoPeriod.endDate}
+                      </span>
+                    ) : null}
+                  </div>
+                )
           }
         >
           {!selectedVideo ? (
             <p className="text-sm text-slate-500">Select a video from the sidebar to dive into specifics.</p>
-          ) : videoAnalyticsError ? (
-            <div className="p-4 border border-rose-200 bg-rose-50 text-rose-700 text-sm rounded-md">
-              {videoAnalyticsError}
-            </div>
-          ) : isLoadingVideoAnalytics ? (
-            <div className="space-y-4">
-              <div className="skeleton skeleton-sm w-48" />
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {Array.from({ length: 6 }).map((_, idx) => (
-                  <div key={idx} className="skeleton skeleton-panel h-20 w-full" />
-                ))}
-              </div>
-              <div className="skeleton skeleton-panel h-40 w-full" />
-            </div>
-          ) : !selectedVideoTotals ? (
-            <p className="text-sm text-slate-500">
-              We couldn&apos;t find analytics for this video during the selected period.
-            </p>
           ) : (
             <div className="space-y-6">
               {bestThumbnail && (
@@ -614,62 +586,95 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-slate-700">Video:</span>
-                  <span className="text-slate-600 truncate max-w-md">{selectedVideo.title}</span>
+              {videoAnalyticsError ? (
+                <div className="p-4 border border-rose-200 bg-rose-50 text-rose-700 text-sm rounded-md">
+                  {videoAnalyticsError}
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {selectedVideo.publishedAt && (
-                    <span>
-                      Published{' '}
-                      <span className="font-medium text-slate-700">
-                        {new Date(selectedVideo.publishedAt).toLocaleDateString()}
-                      </span>
-                    </span>
-                  )}
-                  {videoPreviousPeriod && (
-                    <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
-                      vs {videoPreviousPeriod.startDate} → {videoPreviousPeriod.endDate}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                {videoHeroMetrics.map((metric) => (
-                  <div
-                    key={metric.label}
-                    className="rounded-xl border border-slate-200 px-4 py-4 bg-white flex flex-col gap-2"
-                  >
-                    <p className="text-xs uppercase tracking-wide text-slate-400">{metric.label}</p>
-                    <div className="text-xl font-semibold text-slate-800">{metric.value}</div>
-                    <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 w-max">
-                      {metric.delta !== undefined && metric.delta !== null
-                        ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
-                            metric.deltaRatio
-                          )}`
-                        : '—'}
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-700">Video:</span>
+                      <span className="text-slate-600 truncate max-w-md">{selectedVideo.title}</span>
                     </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-                {videoMetricsConfig.map(({ key, label, format }) => {
-                  const metric = selectedVideoTotals[key];
-                  return (
-                    <div key={key} className="space-y-2">
-                      <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
-                      <div className="text-lg font-semibold text-slate-800">{format(metric.value)}</div>
-                      <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                        {metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} {formatPercent(metric.deltaRatio)}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {selectedVideo.publishedAt && (
+                        <span>
+                          Published{' '}
+                          <span className="font-medium text-slate-700">
+                            {new Date(selectedVideo.publishedAt).toLocaleDateString()}
+                          </span>
+                        </span>
+                      )}
+                      <div className="min-w-[150px]">
+                        {isLoadingVideoAnalytics ? (
+                          <div className="skeleton skeleton-xs w-36" />
+                        ) : videoPreviousPeriod ? (
+                          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
+                            vs {videoPreviousPeriod.startDate} → {videoPreviousPeriod.endDate}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
 
+                  {isLoadingVideoAnalytics ? (
+                    <div className="space-y-4">
+                      <div className="skeleton skeleton-sm w-48" />
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {Array.from({ length: 3 }).map((_, idx) => (
+                          <div key={`video-hero-skeleton-${idx}`} className="skeleton skeleton-panel h-24 w-full" />
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                        {Array.from({ length: 8 }).map((_, idx) => (
+                          <div key={`video-metric-skeleton-${idx}`} className="skeleton skeleton-panel h-20 w-full" />
+                        ))}
+                      </div>
+                    </div>
+                  ) : selectedVideoTotals ? (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                        {videoHeroMetrics.map((metric) => (
+                          <div
+                            key={metric.label}
+                            className="rounded-xl border border-slate-200 px-4 py-4 bg-white flex flex-col gap-2"
+                          >
+                            <p className="text-xs uppercase tracking-wide text-slate-400">{metric.label}</p>
+                            <div className="text-xl font-semibold text-slate-800">{metric.value}</div>
+                            <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 w-max">
+                              {metric.delta !== undefined && metric.delta !== null
+                                ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
+                                    metric.deltaRatio
+                                  )}`
+                                : '—'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+                        {videoMetricsConfig.map(({ key, label, format }) => {
+                          const metric = selectedVideoTotals[key];
+                          return (
+                            <div key={key} className="space-y-2">
+                              <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
+                              <div className="text-lg font-semibold text-slate-800">{format(metric.value)}</div>
+                              <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                                {metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} {formatPercent(metric.deltaRatio)}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-slate-500">
+                      We couldn&apos;t find analytics for this video during the selected period.
+                    </p>
+                  )}
+                </>
+              )}
             </div>
           )}
         </Card>

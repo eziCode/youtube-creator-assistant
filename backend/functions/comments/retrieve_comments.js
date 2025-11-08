@@ -1,4 +1,5 @@
 import axios from "axios";
+import { buildCommentFromThread } from "../../models/comment.js";
 
 const retrieveComments = async (videoId) => {
 	if (!videoId) throw new Error("videoId is required");
@@ -22,36 +23,12 @@ const retrieveComments = async (videoId) => {
 			};
 			if (pageToken) params.pageToken = pageToken;
 
-            console.log("Fetching comments with params:", params);
-
 			const res = await axios.get(url, { params });
 			const items = res.data.items || [];
 
 			items.forEach((item) => {
-				const top = item.snippet.topLevelComment.snippet;
-				comments.push({
-					id: item.id,
-					text: top.textDisplay,
-					author: top.authorDisplayName,
-					likeCount: top.likeCount,
-					publishedAt: top.publishedAt,
-					kind: "topLevel",
-				});
-
-				if (item.replies && item.replies.comments) {
-					item.replies.comments.forEach((rep) => {
-						const r = rep.snippet;
-						comments.push({
-							id: rep.id,
-							text: r.textDisplay,
-							author: r.authorDisplayName,
-							likeCount: r.likeCount,
-							publishedAt: r.publishedAt,
-							kind: "reply",
-							replyTo: item.id,
-						});
-					});
-				}
+				const comment = buildCommentFromThread(item);
+				comments.push(comment.toJSON());
 			});
 
 			pageToken = res.data.nextPageToken;

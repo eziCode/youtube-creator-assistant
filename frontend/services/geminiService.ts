@@ -1,10 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
+import { API_BASE_URL } from '../constants';
 import { Video, Tone, Comment } from '../types';
 
-// In a real app, the API key would be handled by a secure environment variable setup.
-// const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+const apiBaseUrl = API_BASE_URL.replace(/\/$/, '');
 
 /**
  * MOCK API: Generates AI-powered insights for a set of videos.
@@ -25,21 +24,41 @@ export const generateAiInsights = async (videos: Video[]): Promise<string> => {
  * MOCK API: Generates a reply to a comment in a specific tone.
  * In a real app, this would call the Gemini API.
  */
-export const regenerateReply = async (comment: Comment, tone: Tone): Promise<string> => {
-  console.log("Mock API Call: regenerateReply");
-  await delay(600);
-  // Real implementation:
-  // const prompt = `As a YouTube creator, generate a ${tone} reply to this comment: "${comment.text}"`;
-  // const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
-  // return response.text;
+interface RegenerateReplyOptions {
+  videoTitle?: string | null;
+}
 
-  const replies: Record<Tone, string> = {
-    Friendly: `Thanks for the great comment, ${comment.user}! Really appreciate you taking the time to watch. 😊`,
-    Professional: `Thank you for your feedback, ${comment.user}. We will take it into consideration for future content.`,
-    Comedic: `Well, ${comment.user}, that's certainly an opinion! Thanks for sharing it with the class. 😂`,
-    Sarcastic: `Oh, a comment from ${comment.user}. How utterly thrilling. I'm so glad you took time out of your busy day for little old me.`
-  };
-  return replies[tone] || `Regenerated reply for: "${comment.text}"`;
+export const regenerateReply = async (comment: Comment, tone: Tone, options?: RegenerateReplyOptions): Promise<string> => {
+  const response = await fetch(`${apiBaseUrl}/comments/generate-reply`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      commentText: comment.text,
+      tone,
+      viewerName: comment.author?.displayName,
+      videoTitle: options?.videoTitle,
+    }),
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string')
+        ? payload.error
+        : `Failed to generate reply (status ${response.status})`;
+    throw new Error(message);
+  }
+
+  const reply = typeof payload?.reply === 'string' ? payload.reply.trim() : '';
+  if (!reply) {
+    throw new Error('No reply returned from assistant');
+  }
+
+  return reply;
 };
 
 /**

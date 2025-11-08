@@ -27,9 +27,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [isLoadingVideoAnalytics, setIsLoadingVideoAnalytics] = useState<boolean>(false);
   const [videoAnalyticsError, setVideoAnalyticsError] = useState<string | null>(null);
   const [analyticsRangeDays, setAnalyticsRangeDays] = useState<number>(28);
-  const [customStartDate, setCustomStartDate] = useState<string | undefined>();
-  const [customEndDate, setCustomEndDate] = useState<string | undefined>();
-  const [channelStartDate, setChannelStartDate] = useState<string | undefined>();
+  const [useSampleData, setUseSampleData] = useState<boolean>(false);
+  const [customStartDate, setCustomStartDate] = useState<string | undefined>(undefined);
+  const [customEndDate, setCustomEndDate] = useState<string | undefined>(undefined);
+  const [channelStartDate, setChannelStartDate] = useState<string | undefined>(undefined);
 
   const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
   const toDateOnly = useCallback((iso?: string | null) => {
@@ -65,13 +66,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       setVideoError(null);
 
       try {
-        const response = await fetch(
-          `${apiBaseUrl}/dashboard/videos?channelId=${encodeURIComponent(user.channelId)}`,
-          {
-            credentials: 'include',
-            signal: controller.signal,
-          }
-        );
+        const url = new URL(`${apiBaseUrl}/dashboard/videos`);
+        url.searchParams.set('channelId', user.channelId);
+        if (useSampleData) url.searchParams.set('useSample', '1');
+
+        const response = await fetch(url.toString(), {
+          credentials: 'include',
+          signal: controller.signal,
+        });
 
         const payload = await response.json().catch(() => null);
 
@@ -127,7 +129,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     return () => {
       controller.abort();
     };
-  }, [apiBaseUrl, user?.channelId]);
+  }, [apiBaseUrl, user?.channelId, useSampleData]);
 
   useEffect(() => {
     if (!user?.channelId) {
@@ -308,7 +310,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       case 'settings':
         return <SettingsTab tone={tone} setTone={setTone} />;
       case 'videoIdeas':
-        return <VideoIdeasGeneratorTab userChannelId={user?.channelId ?? null} />;
+        return <VideoIdeasGeneratorTab userChannelId={user?.channelId ?? null} useSample={useSampleData} />;
       default:
         return <div>Select a tab</div>;
 
@@ -351,6 +353,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             >
               Sign out
             </button>
+            <label className="ml-2 flex items-center text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={useSampleData}
+                onChange={(e) => setUseSampleData(e.target.checked)}
+                className="mr-2"
+              />
+              Use sample data
+            </label>
           </div>
         </header>
 

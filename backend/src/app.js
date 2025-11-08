@@ -340,6 +340,18 @@ const registerRoutes = () => {
 			return res.status(400).json({ error: "channelId query param required" });
 		}
 
+		const useSample = req.query?.useSample === '1' || req.query?.useSample === 'true' || process.env.USE_SAMPLE_DATA === 'true';
+
+		if (useSample) {
+			console.log('[dashboard] returning sample videos (useSample)');
+			const sampleVideos = [
+				{ id: 'sample1', title: 'Science Fair: How We Built a Low-Cost Spectrometer' },
+				{ id: 'sample2', title: 'Engineering Challenge: Autonomous Line-Following Robot' },
+				{ id: 'sample3', title: 'Biology Experiment: Plant Growth Under Different Light Colors' },
+			];
+			return res.json({ videos: sampleVideos });
+		}
+
 		try {
 			const videos = await getVideos(channelId, { maxResults });
 			return res.json({ videos });

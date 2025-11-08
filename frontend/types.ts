@@ -7,11 +7,28 @@ export type CommentStatus = "pending" | "approved" | "auto-replied";
 export interface Video {
   id: string;
   title: string;
-  views: number;
-  watchTime: number; // in hours
-  retention: number; // as a decimal, e.g., 0.62 for 62%
-  likes: number;
-  commentsCount: number;
+  description?: string | null;
+  channelId?: string | null;
+  channelTitle?: string | null;
+  publishedAt?: string | null;
+  thumbnails?: Record<
+    string,
+    {
+      url?: string;
+      width?: number;
+      height?: number;
+    }
+  >;
+  duration?: string | null;
+  tags?: string[];
+  liveBroadcastContent?: string | null;
+  defaultLanguage?: string | null;
+  defaultAudioLanguage?: string | null;
+  viewCount?: number | null;
+  likeCount?: number | null;
+  commentCount?: number | null;
+  favoriteCount?: number | null;
+  categoryId?: string | null;
 }
 
 export interface Comment {
@@ -36,4 +53,6 @@ export interface AuthenticatedUser {
   email: string;
   name?: string | null;
   picture?: string | null;
+  channelId?: string | null;
+  channelTitle?: string | null;
 }

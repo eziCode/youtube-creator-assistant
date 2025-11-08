@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AuthenticatedUser, Tab, Tone, Video } from '../types';
-import { MOCK_VIDEOS } from '../constants';
+import { API_BASE_URL } from '../constants';
 import Sidebar from './Sidebar';
 import AnalyticsTab from './AnalyticsTab';
 import CommentsTab from './CommentsTab';
@@ -14,13 +14,94 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState<Tab>('analytics');
-  const [selectedVideo, setSelectedVideo] = useState<Video>(MOCK_VIDEOS[0]);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [tone, setTone] = useState<Tone>('Friendly');
+  const [isLoadingVideos, setIsLoadingVideos] = useState<boolean>(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
+
+  const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
+
+  useEffect(() => {
+    if (!user?.channelId) {
+      setVideos([]);
+      setSelectedVideo(null);
+      setIsLoadingVideos(false);
+      setVideoError(user ? 'No YouTube channel connected to this account yet.' : null);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const fetchVideos = async () => {
+      setIsLoadingVideos(true);
+      setVideoError(null);
+
+      try {
+        const response = await fetch(
+          `${apiBaseUrl}/dashboard/videos?channelId=${encodeURIComponent(user.channelId)}`,
+          {
+            credentials: 'include',
+            signal: controller.signal,
+          }
+        );
+
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          const message =
+            (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string')
+              ? payload.error
+              : `Failed to load videos (status ${response.status})`;
+          throw new Error(message);
+        }
+
+        const fetchedVideos: Video[] = Array.isArray(payload?.videos) ? payload.videos : [];
+        setVideos(fetchedVideos);
+        setSelectedVideo((prev) => {
+          if (!fetchedVideos.length) {
+            return null;
+          }
+          if (prev) {
+            const existing = fetchedVideos.find((video) => video.id === prev.id);
+            if (existing) {
+              return existing;
+            }
+          }
+          return fetchedVideos[0];
+        });
+      } catch (err) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        console.error('[dashboard] failed to load videos', err);
+        setVideos([]);
+        setSelectedVideo(null);
+        setVideoError(err instanceof Error ? err.message : 'Failed to load videos');
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingVideos(false);
+        }
+      }
+    };
+
+    fetchVideos();
+
+    return () => {
+      controller.abort();
+    };
+  }, [apiBaseUrl, user?.channelId]);
 
   const renderContent = () => {
     switch (activeTab) {
       case 'analytics':
-        return <AnalyticsTab videos={MOCK_VIDEOS} />;
+        return (
+          <AnalyticsTab
+            videos={videos}
+            isLoading={isLoadingVideos}
+            error={videoError}
+          />
+        );
       case 'comments':
         return <CommentsTab tone={tone} />;
       case 'shorts':
@@ -77,7 +158,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             setActiveTab={setActiveTab}
             selectedVideo={selectedVideo}
             setSelectedVideo={setSelectedVideo}
-            videos={MOCK_VIDEOS}
+            videos={videos}
+            isLoading={isLoadingVideos}
+            error={videoError}
           />
 
           <main className="col-span-12 md:col-span-9">

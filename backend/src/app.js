@@ -29,38 +29,38 @@ const isProduction = process.env.NODE_ENV === "production";
 const sameSite = isProduction ? "none" : "lax";
 
 if (!MONGODB_URI) {
-    console.error("[app] Missing MONGODB_URI environment variable.");
+	console.error("[app] Missing MONGODB_URI environment variable.");
 }
 
 if (!SESSION_SECRET) {
-    console.error("[app] Missing SESSION_SECRET environment variable.");
+	console.error("[app] Missing SESSION_SECRET environment variable.");
 }
 
 app.set("trust proxy", 1);
 
 app.use(express.json());
 app.use(
-    cors({
-        origin: FRONTEND_ORIGIN,
-        credentials: true,
-    })
+	cors({
+		origin: FRONTEND_ORIGIN,
+		credentials: true,
+	})
 );
 
 const registerRoutes = () => {
-    app.use("/auth", authRouter);
+	app.use("/auth", authRouter);
 
-    app.get("/retrieve-comments", async (req, res) => {
-        const videoId = req.query.videoId;
-        if (!videoId) return res.status(400).json({ error: "videoId query param required" });
+	app.get("/retrieve-comments", async (req, res) => {
+		const videoId = req.query.videoId;
+		if (!videoId) return res.status(400).json({ error: "videoId query param required" });
 
-        try {
-            const comments = await retrieveComments(videoId);
-            return res.json({ comments });
-        } catch (err) {
-            console.error(err);
-            return res.status(500).json({ error: err.message || "failed to retrieve comments" });
-        }
-    });
+		try {
+			const comments = await retrieveComments(videoId);
+			return res.json({ comments });
+		} catch (err) {
+			console.error(err);
+			return res.status(500).json({ error: err.message || "failed to retrieve comments" });
+		}
+	});
 
 	app.post("/comments/respond", async (req, res) => {
 		const { responses: providedResponses, comments: providedComments, videoId, maxResponses } = req.body ?? {};
@@ -267,58 +267,58 @@ const registerRoutes = () => {
 };
 
 const startServer = async () => {
-    try {
-        if (!MONGODB_URI) {
-            throw new Error("MONGODB_URI must be configured");
-        }
+	try {
+		if (!MONGODB_URI) {
+			throw new Error("MONGODB_URI must be configured");
+		}
 
-        if (!SESSION_SECRET) {
-            throw new Error("SESSION_SECRET must be configured");
-        }
+		if (!SESSION_SECRET) {
+			throw new Error("SESSION_SECRET must be configured");
+		}
 
-        mongoose.connection.on("error", (err) => {
-            console.error("[mongo] connection error", err);
-        });
+		mongoose.connection.on("error", (err) => {
+			console.error("[mongo] connection error", err);
+		});
 
-        await mongoose.connect(MONGODB_URI, {
-            dbName: process.env.MONGODB_DB_NAME,
-        });
+		await mongoose.connect(MONGODB_URI, {
+			dbName: process.env.MONGODB_DB_NAME,
+		});
 
-        const store = MongoStore.create({
-            client: mongoose.connection.getClient(),
-            collectionName: SESSION_COLLECTION_NAME,
-            ttl: SESSION_TTL_SECONDS,
-            stringify: false,
-            autoRemove: "native",
-        });
+		const store = MongoStore.create({
+			client: mongoose.connection.getClient(),
+			collectionName: SESSION_COLLECTION_NAME,
+			ttl: SESSION_TTL_SECONDS,
+			stringify: false,
+			autoRemove: "native",
+		});
 
-        const sessionMiddleware = session({
-            name: SESSION_COOKIE_NAME,
-            secret: SESSION_SECRET,
-            resave: false,
-            saveUninitialized: false,
-            store,
-            cookie: {
-                maxAge: SESSION_TTL_SECONDS * 1000,
-                httpOnly: true,
-                sameSite,
-                secure: isProduction,
-            },
-        });
+		const sessionMiddleware = session({
+			name: SESSION_COOKIE_NAME,
+			secret: SESSION_SECRET,
+			resave: false,
+			saveUninitialized: false,
+			store,
+			cookie: {
+				maxAge: SESSION_TTL_SECONDS * 1000,
+				httpOnly: true,
+				sameSite,
+				secure: isProduction,
+			},
+		});
 
-        app.use(sessionMiddleware);
-        app.set("sessionCookieName", SESSION_COOKIE_NAME);
-        app.set("sessionCookieSameSite", sameSite);
-        app.set("sessionCookieSecure", isProduction);
+		app.use(sessionMiddleware);
+		app.set("sessionCookieName", SESSION_COOKIE_NAME);
+		app.set("sessionCookieSameSite", sameSite);
+		app.set("sessionCookieSecure", isProduction);
 
-        registerRoutes();
+		registerRoutes();
 
-        const PORT = process.env.PORT || 4000;
-        app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-    } catch (err) {
-        console.error("[app] Failed to start server", err);
-        process.exit(1);
-    }
+		const PORT = process.env.PORT || 4000;
+		app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+	} catch (err) {
+		console.error("[app] Failed to start server", err);
+		process.exit(1);
+	}
 };
 
 startServer();

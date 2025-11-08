@@ -2,16 +2,36 @@ import { google } from "googleapis";
 import dotenv from "dotenv";
 dotenv.config();
 
-export async function getOAuth2Client() {
+export async function getOAuth2Client(tokens) {
   const oauth2Client = new google.auth.OAuth2(
-    process.env.CLIENT_ID,
-    process.env.CLIENT_SECRET,
-    "http://localhost:5173/oauth2callback"
+    process.env.GOOGLE_CLIENT_ID || process.env.CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET || process.env.CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI || process.env.OAUTH2_REDIRECT_URI || "http://localhost:5173/oauth2callback"
   );
 
-  println("OAuth2 client created YOUTUBE MODEL");
+  console.log("OAuth2 client created YOUTUBE MODEL");
 
-  // TODO: implement OAuth token exchange for creator
+  // If tokens are provided (from session), attach them so downstream
+  // google API calls have access/refresh tokens available.
+  if (tokens && typeof tokens === "object") {
+    // Normalize token keys to what google-auth-library expects
+    const normalized = {};
+    if (tokens.access_token) normalized.access_token = tokens.access_token;
+    if (tokens.refresh_token) normalized.refresh_token = tokens.refresh_token;
+    if (tokens.accessToken) normalized.access_token = tokens.accessToken;
+    if (tokens.refreshToken) normalized.refresh_token = tokens.refreshToken;
+    if (tokens.scope) normalized.scope = tokens.scope;
+    if (tokens.token_type) normalized.token_type = tokens.token_type;
+    if (tokens.tokenType) normalized.token_type = tokens.tokenType;
+    if (tokens.expiry_date) normalized.expiry_date = tokens.expiry_date;
+    if (tokens.expiryDate) normalized.expiry_date = tokens.expiryDate;
+
+    oauth2Client.setCredentials(normalized);
+    console.log("OAuth2 client credentials set from session tokens (normalized)");
+  } else {
+    console.log("No tokens provided to OAuth2 client; API calls may fail without auth");
+  }
+
   return oauth2Client;
 }
 
@@ -22,7 +42,7 @@ export async function getChannelVideos(auth, channelId) {
     part: ["contentDetails"],
     id: [channelId],
   });
-  println("Channel details fetched");
+  console.log("Channel details fetched");
   const uploadsId = res.data.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
 
   const videos = [];
@@ -43,7 +63,7 @@ export async function getChannelVideos(auth, channelId) {
       });
     });
 
-    println("Fetched a page of channel videos");
+    console.log("Fetched a page of channel videos");
 
     nextPageToken = plRes.data.nextPageToken;
   } while (nextPageToken);
@@ -59,7 +79,7 @@ export async function getTrendingVideos(auth, regionCode = "US") {
     regionCode,
     maxResults: 20,
   });
-  println("Trending videos fetched");
+  console.log("Trending videos fetched");
 
   return res.data.items?.map(item => ({
     title: item.snippet?.title,

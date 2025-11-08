@@ -1,0 +1,125 @@
+import React, { useState } from "react";
+import { API_BASE_URL } from "../constants";
+
+interface VideoIdeasGeneratorTabProps {
+  userChannelId: string | null;
+}
+
+interface GeneratedVideo {
+  id: string;
+  title: string;
+  script: string;
+  thumbnailPrompt: string;
+  thumbnailPath: string;
+}
+
+const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userChannelId }) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [shortsIdeas, setShortsIdeas] = useState<GeneratedVideo[]>([]);
+  const [videoIdeas, setVideoIdeas] = useState<GeneratedVideo[]>([]);
+  const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
+
+  const handleGenerate = async () => {
+    console.log("No user channel ID provided");
+    if (!userChannelId) {
+      setError("No YouTube channel connected.");
+      return;
+    }
+    console.log("Generated video ideas for channel ID:", userChannelId);
+
+    setIsLoading(true);
+    setError(null);
+    setShortsIdeas([]);
+    setVideoIdeas([]);
+    setExpandedVideoId(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channelId: userChannelId }),
+      });
+
+      const data = await response.json();
+      console.log("Backend response:", response, data);
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to generate video ideas.");
+      }
+
+      // Assume backend returns arrays: shorts and videos
+      setShortsIdeas(data.shorts || []);
+      setVideoIdeas(data.videos || []);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "An unknown error occurred.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderVideoCard = (video: GeneratedVideo) => {
+    const isExpanded = expandedVideoId === video.id;
+
+    return (
+      <div key={video.id} className="border rounded-lg overflow-hidden shadow-sm mb-4">
+        <div
+          className="flex items-center cursor-pointer hover:bg-gray-100 transition-colors"
+          onClick={() => setExpandedVideoId(isExpanded ? null : video.id)}
+        >
+          {video.thumbnailPath && (
+            <img
+              src={video.thumbnailPath}
+              alt={video.title}
+              className="w-24 h-24 object-cover rounded-l-lg"
+            />
+          )}
+          <div className="p-2 flex-1">
+            <h4 className="font-semibold text-sm">{video.title}</h4>
+          </div>
+        </div>
+        {isExpanded && (
+          <div className="p-2 bg-gray-50 text-xs whitespace-pre-line">
+            {video.script || "No script available."}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-8 overflow-y-auto max-h-[calc(100vh-150px)]">
+      <h2 className="text-xl font-bold">Video Ideas Generator</h2>
+
+      <button
+        onClick={handleGenerate}
+        disabled={isLoading || !userChannelId}
+        className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+      >
+        {isLoading ? "Generating..." : "Generate Video & Shorts Ideas"}
+      </button>
+
+      {error && <p className="text-red-500">{error}</p>}
+
+      {/* Shorts Ideas Section */}
+      <section>
+        <h3 className="text-lg font-semibold mb-2">Shorts Ideas</h3>
+        {shortsIdeas.length === 0 && !isLoading && <p className="text-sm text-gray-500">No shorts ideas generated yet.</p>}
+        <div className="flex flex-col">
+          {shortsIdeas.map(renderVideoCard)}
+        </div>
+      </section>
+
+      {/* Video Ideas Section */}
+      <section>
+        <h3 className="text-lg font-semibold mb-2">Video Ideas</h3>
+        {videoIdeas.length === 0 && !isLoading && <p className="text-sm text-gray-500">No video ideas generated yet.</p>}
+        <div className="flex flex-col">
+          {videoIdeas.map(renderVideoCard)}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export default VideoIdeasGeneratorTab;

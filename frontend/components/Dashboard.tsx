@@ -6,6 +6,7 @@ import AnalyticsTab from './AnalyticsTab';
 import CommentsTab from './CommentsTab';
 import ShortsGeneratorTab from './ShortsGeneratorTab';
 import SettingsTab from './SettingsTab';
+import VideoIdeasGeneratorTab from "./VideoIdeasGeneratorTab";
 
 interface DashboardProps {
   user: AuthenticatedUser | null;
@@ -306,8 +307,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         return <ShortsGeneratorTab selectedVideo={selectedVideo} />;
       case 'settings':
         return <SettingsTab tone={tone} setTone={setTone} />;
+      case 'videoIdeas':
+        return <VideoIdeasGeneratorTab userChannelId={user?.channelId ?? null} />;
       default:
         return <div>Select a tab</div>;
+
     }
   };
 
@@ -351,7 +355,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         </header>
 
         <div className="grid grid-cols-12 gap-8">
-          <Sidebar 
+          <Sidebar
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             selectedVideo={selectedVideo}

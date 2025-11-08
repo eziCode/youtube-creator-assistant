@@ -17,8 +17,10 @@ const LandingPage: React.FC<LandingPageProps> = ({
       <header className="absolute top-0 left-0 w-full z-10 p-4 md:p-6">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 bg-indigo-100 rounded-full text-indigo-600"><RobotIcon /></span>
-            <span className="font-bold text-lg">YouTube AI Assistant</span>
+          <span className="p-1.5 bg-indigo-100 rounded-full text-indigo-600 animate-glow">
+            <RobotIcon />
+              </span>
+              <span className="font-bold text-lg">YouTube AI Assistant</span>
           </div>
           <nav>
             <button
@@ -31,12 +33,13 @@ const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </header>
 
-      <main className="relative pt-32 pb-20 md:pt-48 md:pb-28">
-        <div className="absolute inset-0 -z-10 h-full w-full bg-white bg-[linear-gradient(to_right,#f0f0f0_1px,transparent_1px),linear-gradient(to_bottom,#f0f0f0_1px,transparent_1px)] bg-[size:6rem_4rem]"><div className="absolute bottom-0 left-0 right-0 top-0 bg-[radial-gradient(circle_500px_at_50%_200px,#C9D6FF,#E2E8F0)]"></div></div>
+        <main className="relative pt-32 pb-20 md:pt-48 md:pb-28">
+        <div className="absolute inset-0 -z-10 h-full w-full bg-white bg-[linear-gradient(to_right,#f0f0f0_1px,transparent_1px),linear-gradient(to_bottom,#f0f0f0_1px,transparent_1px)] bg-[size:6rem_4rem]">
+    <div className="absolute bottom-0 left-0 right-0 top-0 bg-[radial-gradient(circle_500px_at_50%_200px,#C9D6FF,#E2E8F0)]"></div></div>
         <div className="max-w-4xl mx-auto text-center px-4">
-          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-slate-900">
-            Supercharge Your YouTube Channel with AI
-          </h1>
+          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-fuchsia-500 to-indigo-500 animate-gradient-fade">
+  Supercharge Your YouTube Channel with AI
+</h1>
           <p className="mt-6 text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
             Get AI-powered analytics, manage comments effortlessly, and generate viral shorts from your long-form content. All in one place.
           </p>
@@ -55,10 +58,23 @@ const LandingPage: React.FC<LandingPageProps> = ({
 
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold text-slate-800">Everything you need to grow</h2>
-            <p className="mt-4 text-slate-500">Focus on creating, let AI handle the rest.</p>
-          </div>
+
+<div className="relative pt-16">
+  <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_50%,#C9D6FF_0%,#E2E8F0_60%)] blur-3xl opacity-30"></div>
+            <div className="text-center">
+  <h2 className="text-3xl md:text-4xl font-extrabold pb-1 text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 animate-gradient-fade">
+  Everything you need to grow
+</h2>
+    <div className="mt-4 flex justify-center">
+    <div className="h-1 w-32 md:w-40 bg-gradient-to-r from-purple-400 via-indigo-500 to-purple-400 rounded-full animate-pulse"></div>
+  </div>
+<p className="mt-6 text-slate-500 animate-fadeIn max-w-xl mx-auto">
+    Focus on creating, let AI handle the rest.
+  </p>
+  
+</div>
+</div>
+
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center p-6 border border-slate-200 rounded-xl hover:shadow-lg transition-shadow">
               <div className="flex items-center justify-center h-12 w-12 rounded-lg bg-indigo-50 text-indigo-600 mx-auto">

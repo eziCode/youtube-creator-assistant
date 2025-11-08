@@ -28,8 +28,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [analyticsRangeDays, setAnalyticsRangeDays] = useState<number>(28);
   const [customStartDate, setCustomStartDate] = useState<string | undefined>();
   const [customEndDate, setCustomEndDate] = useState<string | undefined>();
+  const [channelStartDate, setChannelStartDate] = useState<string | undefined>();
 
   const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
+  const toDateOnly = useCallback((iso?: string | null) => {
+    if (!iso) return undefined;
+    const parsed = new Date(iso);
+    if (Number.isNaN(parsed.getTime())) return undefined;
+    const year = parsed.getUTCFullYear();
+    const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(parsed.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
 
   useEffect(() => {
     if (!user?.channelId) {
@@ -43,6 +53,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       setVideoAnalytics(null);
       setIsLoadingVideoAnalytics(false);
       setVideoAnalyticsError(user ? 'Select a channel video to analyze once connected.' : null);
+      setChannelStartDate(undefined);
       return;
     }
 
@@ -73,6 +84,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
         const fetchedVideos: Video[] = Array.isArray(payload?.videos) ? payload.videos : [];
         setVideos(fetchedVideos);
+        const earliestPublished = fetchedVideos.reduce<string | undefined>((earliest, video) => {
+          const dateOnly = toDateOnly(video?.publishedAt);
+          if (!dateOnly) return earliest;
+          if (!earliest || dateOnly < earliest) {
+            return dateOnly;
+          }
+          return earliest;
+        }, undefined);
+        setChannelStartDate(earliestPublished);
         setSelectedVideo((prev) => {
           if (!fetchedVideos.length) {
             return null;
@@ -93,6 +113,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         setVideos([]);
         setSelectedVideo(null);
         setVideoError(err instanceof Error ? err.message : 'Failed to load videos');
+        setChannelStartDate(undefined);
       } finally {
         if (!controller.signal.aborted) {
           setIsLoadingVideos(false);
@@ -276,6 +297,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             customStartDate={customStartDate}
             customEndDate={customEndDate}
             onChangeCustomDateRange={handleChangeCustomDateRange}
+            channelStartDate={channelStartDate}
           />
         );
       case 'comments':

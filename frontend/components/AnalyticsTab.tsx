@@ -23,6 +23,7 @@ interface AnalyticsTabProps {
   customStartDate?: string;
   customEndDate?: string;
   onChangeCustomDateRange?: (startDate: string, endDate: string) => void;
+  channelStartDate?: string;
 }
 
 const formatNumber = (value: number, options?: Intl.NumberFormatOptions) =>
@@ -133,6 +134,29 @@ const formatWatchTime = (minutes: number) => {
   return `${formattedHours} ${unit}`;
 };
 
+const toDateOnly = (iso?: string | null) => {
+  if (!iso) return null;
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const year = parsed.getUTCFullYear();
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const clampDateToFloor = (value: string, floor?: string | null) => {
+  if (!value) return value;
+  if (!floor) return value;
+  return value < floor ? floor : value;
+};
+
+const getLaterDate = (a?: string | null, b?: string | null) => {
+  if (a && b) {
+    return a > b ? a : b;
+  }
+  return a ?? b ?? null;
+};
+
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   videos,
   selectedVideo,
@@ -149,6 +173,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   customStartDate,
   customEndDate,
   onChangeCustomDateRange,
+  channelStartDate,
 }) => {
   const [viewMode, setViewMode] = useState<'channel' | 'video'>('channel');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -167,18 +192,49 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     return offsetIso;
   }, []);
 
+  const channelMinDate = useMemo(() => toDateOnly(channelStartDate), [channelStartDate]);
+  const videoMinDate = useMemo(
+    () => toDateOnly(selectedVideo?.publishedAt ?? null),
+    [selectedVideo?.publishedAt]
+  );
+  const effectiveMinDate = useMemo(() => {
+    if (viewMode === 'video') {
+      return getLaterDate(videoMinDate, channelMinDate);
+    }
+    return channelMinDate ?? null;
+  }, [viewMode, videoMinDate, channelMinDate]);
+
   const activeRange = useMemo(() => {
     if (!isCustomRangeActive || !customStartDate || !customEndDate) return null;
-    return { start: customStartDate, end: customEndDate };
-  }, [isCustomRangeActive, customStartDate, customEndDate]);
+    const floor = effectiveMinDate ?? null;
+    const normalizedStart =
+      floor && customStartDate < floor ? floor : customStartDate;
+    const normalizedEnd =
+      normalizedStart > customEndDate ? normalizedStart : customEndDate;
+    return { start: normalizedStart, end: normalizedEnd };
+  }, [isCustomRangeActive, customStartDate, customEndDate, effectiveMinDate]);
 
   const isCustomRangeReady = useMemo(() => {
     if (!tempStartDate || !tempEndDate) return false;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(tempStartDate) || !/^\d{4}-\d{2}-\d{2}$/.test(tempEndDate)) {
+      return false;
+    }
+    if (effectiveMinDate && tempStartDate < effectiveMinDate) {
+      return false;
+    }
     const start = new Date(tempStartDate);
     const end = new Date(tempEndDate);
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
     return start <= end;
-  }, [tempStartDate, tempEndDate]);
+  }, [tempStartDate, tempEndDate, effectiveMinDate]);
+
+  const endDateMinimum = useMemo(() => {
+    const candidates = [effectiveMinDate, tempStartDate].filter(Boolean) as string[];
+    if (!candidates.length) {
+      return undefined;
+    }
+    return candidates.reduce((latest, date) => (date > latest ? date : latest), candidates[0]);
+  }, [effectiveMinDate, tempStartDate]);
 
   useEffect(() => {
     if (!selectedVideo && viewMode === 'video') {
@@ -190,6 +246,28 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     setTempStartDate(customStartDate ?? '');
     setTempEndDate(customEndDate ?? '');
   }, [customStartDate, customEndDate]);
+
+  useEffect(() => {
+    if (!effectiveMinDate) return;
+    setTempStartDate((prev) => {
+      if (!prev) return prev;
+      return prev < effectiveMinDate ? effectiveMinDate : prev;
+    });
+  }, [effectiveMinDate]);
+
+  useEffect(() => {
+    setTempEndDate((prev) => {
+      if (!prev) return prev;
+      let next = prev;
+      if (effectiveMinDate && next < effectiveMinDate) {
+        next = effectiveMinDate;
+      }
+      if (tempStartDate && next < tempStartDate) {
+        next = tempStartDate;
+      }
+      return next === prev ? prev : next;
+    });
+  }, [effectiveMinDate, tempStartDate]);
 
   useEffect(() => {
     setIsCustomRangeActive(analyticsRangeDays === 0 && Boolean(customStartDate && customEndDate));
@@ -216,11 +294,30 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       return;
     }
 
-    onChangeCustomDateRange?.(tempStartDate, tempEndDate);
+    let normalizedStart = tempStartDate;
+    if (effectiveMinDate && normalizedStart < effectiveMinDate) {
+      normalizedStart = effectiveMinDate;
+    }
+    let normalizedEnd = tempEndDate;
+    if (normalizedEnd < normalizedStart) {
+      normalizedEnd = normalizedStart;
+    }
+
+    onChangeCustomDateRange?.(normalizedStart, normalizedEnd);
+    setTempStartDate(normalizedStart);
+    setTempEndDate(normalizedEnd);
     setIsCustomRangeActive(true);
     onChangeRangeDays(0);
     setShowDatePicker(false);
-  }, [canUseCustomRange, isCustomRangeReady, onChangeCustomDateRange, tempStartDate, tempEndDate, onChangeRangeDays]);
+  }, [
+    canUseCustomRange,
+    isCustomRangeReady,
+    onChangeCustomDateRange,
+    tempStartDate,
+    tempEndDate,
+    onChangeRangeDays,
+    effectiveMinDate,
+  ]);
 
   const isLoadingChannel = isLoadingVideos || isLoadingAnalytics;
 
@@ -522,7 +619,20 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   type="date"
                   value={tempStartDate}
                   max={todayIso}
-                  onChange={(event) => setTempStartDate(event.target.value)}
+                  min={effectiveMinDate ?? undefined}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (!value) {
+                      setTempStartDate('');
+                      return;
+                    }
+                    const clamped = clampDateToFloor(value, effectiveMinDate);
+                    setTempStartDate(clamped);
+                    setTempEndDate((prev) => {
+                      if (!prev) return prev;
+                      return prev < clamped ? clamped : prev;
+                    });
+                  }}
                   className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                 />
               </label>
@@ -532,9 +642,23 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 <input
                   type="date"
                   value={tempEndDate}
-                  min={tempStartDate || undefined}
+                  min={endDateMinimum}
                   max={todayIso}
-                  onChange={(event) => setTempEndDate(event.target.value)}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (!value) {
+                      setTempEndDate('');
+                      return;
+                    }
+                    let clamped = value;
+                    if (effectiveMinDate && clamped < effectiveMinDate) {
+                      clamped = effectiveMinDate;
+                    }
+                    if (tempStartDate && clamped < tempStartDate) {
+                      clamped = tempStartDate;
+                    }
+                    setTempEndDate(clamped);
+                  }}
                   className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                 />
               </label>

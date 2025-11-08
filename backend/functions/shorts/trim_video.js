@@ -3,7 +3,7 @@ import { mkdir } from "fs/promises";
 import crypto from "crypto";
 import path from "path";
 
-const DEFAULT_OUTPUT_DIR = "./downloads";
+const DEFAULT_OUTPUT_DIR = "./trimmed_content";
 
 let ffmpegCommandCache;
 

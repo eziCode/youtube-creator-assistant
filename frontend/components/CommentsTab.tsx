@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { API_BASE_URL } from '../constants';
+import React, { useState, useMemo } from 'react';
+import { Comment, Tone, CommentStatus } from '../types';
+import { MOCK_COMMENTS } from '../constants';
 import { regenerateReply } from '../services/geminiService';
 import { RobotIcon, InboxIcon } from './icons';
 import {
@@ -18,25 +19,9 @@ interface CommentsTabProps {
   user: AuthenticatedUser | null;
 }
 
-const sentimentStyles: Record<Sentiment, string> = {
-  positive: 'bg-emerald-100 text-emerald-800',
-  negative: 'bg-rose-100 text-rose-800',
-  question: 'bg-sky-100 text-sky-800',
-  neutral: 'bg-slate-200 text-slate-800',
-};
-
-const riskStyles: { [key in RiskLevel]: string } = {
-  low: 'bg-slate-200 text-slate-800',
-  high: 'bg-amber-100 text-amber-800',
-};
-
-const stripHtml = (value?: string | null) =>
-  (value ?? '')
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ')
-    .trim();
+const CommentsTab: React.FC<CommentsTabProps> = ({ tone }) => {
+  const [comments, setComments] = useState<Comment[]>(MOCK_COMMENTS);
+  const [isRegenerating, setIsRegenerating] = useState<number | null>(null);
 
 const inferSentiment = (text: string): Sentiment => {
   const lower = text.toLowerCase();
@@ -226,32 +211,14 @@ const CommentsTab: React.FC<CommentsTabProps> = ({ tone, selectedVideo, user }) 
   };
 
   return (
-    <section>
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <h2 className="text-xl font-bold text-slate-800">Comments & Replies</h2>
-        <div className="flex flex-col md:items-end gap-1 text-sm text-slate-500">
-          {selectedVideo?.title && (
-            <span className="text-slate-600">
-              Reviewing: <strong className="text-slate-800">{selectedVideo.title}</strong>
-            </span>
-          )}
-          <span>
-            Current Tone: <strong className="text-indigo-600">{tone}</strong>
-          </span>
-          {lastUpdated && !isLoading && (
-            <span className="text-xs text-slate-400">
-              Last synced {lastUpdated.toLocaleTimeString()}
-            </span>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={refreshComments}
-            disabled={isLoading || !selectedVideo?.id}
-            className="px-3 py-2 text-sm font-semibold rounded-md border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-50"
-          >
-            Refresh comments
-          </button>
+    <section className="space-y-9 text-white">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h2 className="text-3xl font-semibold text-white drop-shadow-sm">Comments & Replies</h2>
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70 shadow-inner shadow-white/10">
+          <span className="text-white/50">Current Tone</span>
+          <strong className="rounded-full bg-gradient-to-r from-indigo-500/80 to-fuchsia-500/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow-[0_12px_25px_rgba(99,102,241,0.35)]">
+            {tone}
+          </strong>
         </div>
       </div>
 
@@ -265,33 +232,32 @@ const CommentsTab: React.FC<CommentsTabProps> = ({ tone, selectedVideo, user }) 
       <div className="space-y-8">
         {/* === AUTO-REPLIED SECTION === */}
         <div>
-          <div className="flex items-center text-indigo-700 mb-3">
+          <div className="mb-4 flex items-center gap-3 text-indigo-200">
               <RobotIcon />
-              <h3 className="text-base font-semibold">Auto-Replied by AI ({autoRepliedComments.length})</h3>
+              <h3 className="text-lg font-semibold text-white">Auto-Replied by AI ({autoRepliedComments.length})</h3>
           </div>
           <div className="space-y-4">
-            {autoRepliedComments.length === 0 && <p className="text-sm text-slate-500 pl-8">No comments have been auto-replied to yet.</p>}
+            {autoRepliedComments.length === 0 && <p className="pl-8 text-sm text-white/60">No comments have been auto-replied to yet.</p>}
             {autoRepliedComments.map(c => (
-              <div key={c.id} className="p-4 bg-emerald-50 border-l-4 border-emerald-300 rounded-lg">
+              <div key={c.id} className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-5 shadow-inner shadow-emerald-500/10">
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <div className="text-sm font-semibold text-slate-800">{c.author?.displayName ?? 'Viewer'}</div>
-                    {c.publishedAt && (
-                      <p className="text-xs text-slate-500">{formatTimestamp(c.publishedAt)}</p>
-                    )}
-                    <p className="text-sm text-slate-700 mt-1">{c.text}</p>
+                    <div className="text-sm font-semibold text-white">{c.user}</div>
+                    <p className="mt-1 text-sm text-white/80">{c.text}</p>
                   </div>
                    <div className="flex gap-2">
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${riskStyles[c.risk ?? 'low']}`}>{c.risk ?? 'low'} Risk</span>
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${sentimentStyles[c.sentiment ?? 'neutral']}`}>{c.sentiment ?? 'neutral'}</span>
+                    <span className={`text-xs font-semibold px-3 py-1 rounded-full capitalize border border-white/15 bg-white/10 text-white/70`}>{c.risk} Risk</span>
+                    <span className={`text-xs font-semibold px-3 py-1 rounded-full capitalize border border-white/15 bg-white/10 text-white/70`}>{c.sentiment}</span>
                    </div>
                 </div>
-                <div className="mt-4 p-3 bg-white rounded-md">
-                   <label className="block text-xs font-medium text-slate-600 mb-1">AI Reply (Posted)</label>
-                   <p className="text-sm text-slate-800">{c.suggestedReply ?? 'Reply unavailable'}</p>
+                <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-inner shadow-white/10">
+                   <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-white/50">AI Reply (Posted)</label>
+                   <p className="text-sm text-white/80">{c.suggestedReply}</p>
                 </div>
                 <div className="mt-3 flex gap-2 justify-end">
-                    <button onClick={() => setCommentStatus(c.id, 'pending')} className="py-1 px-3 text-xs font-semibold rounded-md border border-slate-300 bg-white hover:bg-slate-100">Undo Auto-Reply</button>
+                    <button onClick={() => setCommentStatus(c.id, 'pending')} className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white/80 transition hover:border-white/30 hover:bg-white/15 hover:text-white">
+                      Undo Auto-Reply
+                    </button>
                 </div>
               </div>
             ))}
@@ -300,42 +266,39 @@ const CommentsTab: React.FC<CommentsTabProps> = ({ tone, selectedVideo, user }) 
 
         {/* === FOR REVIEW SECTION === */}
         <div>
-           <div className="flex items-center text-slate-700 mb-3">
+           <div className="mb-4 flex items-center gap-3 text-white/70">
               <InboxIcon />
-              <h3 className="text-base font-semibold">For Your Review ({needsReviewComments.length})</h3>
+              <h3 className="text-lg font-semibold text-white">For Your Review ({needsReviewComments.length})</h3>
             </div>
           <div className="space-y-4">
-          {needsReviewComments.length === 0 && <p className="text-sm text-slate-500 pl-8">Your review queue is empty. Great job!</p>}
+          {needsReviewComments.length === 0 && <p className="pl-8 text-sm text-white/60">Your review queue is empty. Great job!</p>}
             {needsReviewComments.map(c => (
-              <div key={c.id} className="p-4 bg-slate-50 rounded-lg transition-shadow hover:shadow-md">
+              <div key={c.id} className="rounded-2xl border border-white/10 bg-white/5 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/10">
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <div className="text-sm font-semibold text-slate-800">{c.author?.displayName ?? 'Viewer'}</div>
-                    {c.publishedAt && (
-                      <p className="text-xs text-slate-500">{formatTimestamp(c.publishedAt)}</p>
-                    )}
-                    <p className="text-sm text-slate-700 mt-1">{c.text}</p>
+                    <div className="text-sm font-semibold text-white">{c.user}</div>
+                    <p className="mt-1 text-sm text-white/80">{c.text}</p>
                   </div>
                    <div className="flex gap-2">
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${riskStyles[c.risk ?? 'low']}`}>{c.risk ?? 'low'} Risk</span>
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${sentimentStyles[c.sentiment ?? 'neutral']}`}>{c.sentiment ?? 'neutral'}</span>
+                    <span className={`text-xs font-semibold px-3 py-1 rounded-full capitalize border border-white/15 bg-white/10 text-white/70`}>{c.risk} Risk</span>
+                    <span className={`text-xs font-semibold px-3 py-1 rounded-full capitalize border border-white/15 bg-white/10 text-white/70`}>{c.sentiment}</span>
                    </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                   <div className="col-span-12 md:col-span-9">
-                      <label htmlFor={`reply-${c.id}`} className="block text-xs font-medium text-slate-600 mb-1">AI-Suggested Reply</label>
-                      <textarea id={`reply-${c.id}`} value={c.suggestedReply ?? ''} onChange={(e) => updateSuggestedReply(c.id, e.target.value)} className="w-full p-2 border border-slate-300 rounded-md shadow-sm h-24 text-sm focus:ring-indigo-500 focus:border-indigo-500"/>
+                      <label htmlFor={`reply-${c.id}`} className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-white/50">AI-Suggested Reply</label>
+                      <textarea id={`reply-${c.id}`} value={c.suggestedReply} onChange={(e) => updateSuggestedReply(c.id, e.target.value)} className="h-24 w-full rounded-2xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white/80 shadow-inner shadow-black/40 transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/40"/>
                   </div>
                   <div className="col-span-12 md:col-span-3 flex flex-row md:flex-col gap-2">
-                    <button onClick={() => setCommentStatus(c.id, 'approved')} disabled={c.status === 'approved'} className={`w-full py-2 px-3 text-sm font-semibold rounded-md transition-all duration-200 ${
+                    <button onClick={() => setCommentStatus(c.id, 'approved')} disabled={c.status === 'approved'} className={`w-full rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${
                         c.status === 'approved' 
-                          ? 'bg-emerald-600 text-white cursor-default' 
-                          : 'bg-white border border-slate-300 hover:bg-slate-100'
+                          ? 'cursor-default border border-emerald-400/40 bg-emerald-500/20 text-emerald-200 shadow-[0_12px_30px_rgba(16,185,129,0.25)]' 
+                          : 'border border-white/20 bg-gradient-to-r from-indigo-500/80 to-fuchsia-500/80 text-white shadow-[0_20px_45px_rgba(99,102,241,0.35)] hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(99,102,241,0.45)]'
                       }`}>
                       {c.status === 'approved' ? '✓ Approved' : 'Approve & Post'}
                     </button>
-                    <button onClick={() => handleRegenerate(c)} disabled={isRegenerating === c.id} className="w-full py-2 px-3 text-sm font-semibold rounded-md border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-50 disabled:cursor-wait">
+                    <button onClick={() => handleRegenerate(c)} disabled={isRegenerating === c.id} className="w-full rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-white/30 hover:bg-white/15 hover:text-white disabled:cursor-wait disabled:opacity-50">
                       {isRegenerating === c.id ? 'Thinking...' : 'Regenerate'}
                     </button>
                   </div>

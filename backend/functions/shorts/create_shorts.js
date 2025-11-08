@@ -2,6 +2,7 @@ import axios from "axios";
 import OpenAI from "openai";
 import { google } from "googleapis";
 import { buildOAuthClient } from "../../utils/googleOAuthClient.js";
+import Transcript from "../../src/models/Transcript.js";
 
 const MIN_SHORT_DURATION = 30;
 const MAX_SHORT_DURATION = 55;
@@ -209,6 +210,36 @@ async function getVideoTranscript(videoId, tokens, { preferredLanguages = DEFAUL
 		throw new Error("videoId is required.");
 	}
 
+	const normalizedPreferredLanguages = Array.isArray(preferredLanguages)
+		? preferredLanguages.map((lang) => lang.toLowerCase())
+		: [];
+
+	if (Transcript) {
+		const cachedTranscript = await Transcript.findOne({ videoId }).lean();
+		if (
+			cachedTranscript?.transcript?.length > 0 &&
+			(normalizedPreferredLanguages.length === 0 ||
+				!cachedTranscript.language ||
+				normalizedPreferredLanguages.includes(cachedTranscript.language.toLowerCase()))
+		) {
+			const cachedDuration =
+				typeof cachedTranscript.videoDurationSeconds === "number"
+					? cachedTranscript.videoDurationSeconds
+					: (() => {
+							const lastEntry = cachedTranscript.transcript[cachedTranscript.transcript.length - 1];
+							return lastEntry?.startTime && lastEntry?.duration
+								? lastEntry.startTime + lastEntry.duration
+								: 0;
+					  })();
+
+			return {
+				transcript: cachedTranscript.transcript,
+				videoDurationSeconds: cachedDuration,
+				updatedTokens: null,
+			};
+		}
+	}
+
 	const oauth2Client = buildOAuthClient(tokens);
 	const youtube = google.youtube({ version: "v3", auth: oauth2Client });
 
@@ -258,6 +289,25 @@ async function getVideoTranscript(videoId, tokens, { preferredLanguages = DEFAUL
 				? transcriptEntries[transcriptEntries.length - 1].startTime +
 				  transcriptEntries[transcriptEntries.length - 1].duration
 				: 0;
+
+		if (Transcript) {
+			await Transcript.findOneAndUpdate(
+				{ videoId },
+				{
+					videoId,
+					transcript: transcriptEntries,
+					videoDurationSeconds,
+					language: selectedTrack?.snippet?.language ?? null,
+					captionTrackId: selectedTrack?.id ?? null,
+					lastFetchedAt: new Date(),
+				},
+				{
+					upsert: true,
+					new: true,
+					setDefaultsOnInsert: true,
+				}
+			);
+		}
 
 		const credentials = oauth2Client.credentials ?? {};
 		const updatedTokens = {

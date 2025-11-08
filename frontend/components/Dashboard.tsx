@@ -237,7 +237,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           />
         );
       case 'comments':
-        return <CommentsTab tone={tone} />;
+        return (
+          <CommentsTab
+            tone={tone}
+            selectedVideo={selectedVideo}
+            user={user}
+          />
+        );
       case 'shorts':
         return <ShortsGeneratorTab />;
       case 'settings':

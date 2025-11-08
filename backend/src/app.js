@@ -13,6 +13,7 @@ import {
 import { createCommentResponses } from "../functions/comments/create_comment_responses.js";
 import { respondToComments } from "../functions/comments/respond_to_comments.js";
 import { generateShortsIdeas } from "../functions/shorts/create_shorts.js";
+import { generateCommentReply } from "../functions/comments/generate_comment_reply.js";
 import authRouter from "./routes/auth.js";
 
 dotenv.config();
@@ -118,6 +119,26 @@ const registerRoutes = () => {
 		} catch (err) {
 			console.error(err);
 			return res.status(500).json({ error: err.message || "failed to respond to comments" });
+		}
+	});
+
+	app.post("/comments/generate-reply", async (req, res) => {
+		if (!req.session?.tokens?.accessToken) {
+			return res.status(401).json({ error: "authentication required" });
+		}
+
+		const { commentText, tone, viewerName, videoTitle } = req.body ?? {};
+
+		if (!commentText || typeof commentText !== "string") {
+			return res.status(400).json({ error: "commentText is required" });
+		}
+
+		try {
+			const reply = await generateCommentReply({ commentText, tone, viewerName, videoTitle });
+			return res.json({ reply });
+		} catch (err) {
+			console.error("[comments] failed to generate reply", err);
+			return res.status(500).json({ error: err.message || "failed to generate reply" });
 		}
 	});
 

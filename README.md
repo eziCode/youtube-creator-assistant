@@ -10,7 +10,9 @@
    cd backend
    npm install
    ```
-2. Create a `.env` file in `backend/` (an example configuration is already provided) and set:
+2. Create a `.env` file in `backend/` (an example configuration is already provided) and set the required keys, including:
+   - `YOUTUBE_API_KEY` – used to fetch channel comments and analytics
+   - `GEMINI_API_KEY` – used by the backend to call the Gemini API for AI-generated replies
 3. Start the server:
    ```bash
    npm run dev

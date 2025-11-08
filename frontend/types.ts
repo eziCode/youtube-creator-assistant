@@ -1,4 +1,4 @@
-export type Sentiment = "positive" | "negative" | "question";
+export type Sentiment = "positive" | "negative" | "question" | "neutral";
 export type Tone = "Friendly" | "Professional" | "Comedic" | "Sarcastic";
 export type Tab = "analytics" | "comments" | "shorts" | "settings";
 export type RiskLevel = "low" | "high";
@@ -31,14 +31,34 @@ export interface Video {
   categoryId?: string | null;
 }
 
-export interface Comment {
-  id: number;
-  user: string;
+export interface CommentAuthor {
+  displayName: string;
+  channelId?: string | null;
+  channelUrl?: string | null;
+  profileImageUrl?: string | null;
+}
+
+export interface CommentReply {
+  id: string;
   text: string;
-  sentiment: Sentiment;
-  risk: RiskLevel;
-  suggestedReply: string;
-  status: CommentStatus;
+  author: CommentAuthor;
+  likeCount?: number | null;
+  publishedAt?: string | null;
+}
+
+export interface Comment {
+  id: string;
+  threadId?: string | null;
+  text: string;
+  author: CommentAuthor;
+  likeCount?: number | null;
+  publishedAt?: string | null;
+  replyCount?: number | null;
+  replies?: CommentReply[];
+  sentiment?: Sentiment;
+  risk?: RiskLevel;
+  suggestedReply?: string;
+  status?: CommentStatus;
 }
 
 export interface ShortClip {

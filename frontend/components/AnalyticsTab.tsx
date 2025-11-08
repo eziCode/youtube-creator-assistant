@@ -727,8 +727,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         <div className="skeleton skeleton-xs flex-1 rounded-full" />
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))
                 : channelHeroMetrics.map((metric) => (
                     <div
                       key={metric.label}
@@ -747,11 +746,9 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                                 : 'bg-white/10 text-white/60'
                             }`}
                           >
-                            {metric.delta !== undefined && metric.delta !== null
-                              ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
-                                  metric.deltaRatio
-                                )}`
-                              : '—'}
+                            {`${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
+                              metric.deltaRatio,
+                            )}`}
                           </span>
                         ) : (
                           <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/60">—</span>
@@ -759,15 +756,9 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         <span className="text-white/50">
                           {previousPeriod ? 'vs previous' : isCustomRangeActive ? 'custom range' : 'current window'}
                         </span>
-                      ) : (
-                        <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-500">—</span>
-                      )}
-                      <span className="text-slate-500">
-                        {previousPeriod ? 'vs previous' : isCustomRangeActive ? 'custom range' : 'current window'}
-                      </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               {channelHeroMetrics.length === 0 && !isLoadingChannel && (
                 <div className="col-span-full text-sm text-white/60">
                   No channel metrics available for this window.

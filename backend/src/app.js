@@ -5,6 +5,7 @@ import cors from "cors";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import { retrieveComments } from "../functions/comments/retrieve_comments.js";
+import { getVideos } from "../functions/dashboard/get_videos.js";
 import authRouter from "./routes/auth.js";
 
 dotenv.config();
@@ -53,6 +54,21 @@ const registerRoutes = () => {
             return res.status(500).json({ error: err.message || "failed to retrieve comments" });
         }
     });
+
+	app.get("/dashboard/videos", async (req, res) => {
+		const { channelId, maxResults } = req.query;
+		if (!channelId) {
+			return res.status(400).json({ error: "channelId query param required" });
+		}
+
+		try {
+			const videos = await getVideos(channelId, { maxResults });
+			return res.json({ videos });
+		} catch (err) {
+			console.error(err);
+			return res.status(500).json({ error: err.message || "failed to retrieve videos" });
+		}
+	});
 };
 
 const startServer = async () => {

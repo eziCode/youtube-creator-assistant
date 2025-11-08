@@ -353,15 +353,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             >
               Sign out
             </button>
-            <label className="ml-2 flex items-center text-sm text-slate-600">
-              <input
-                type="checkbox"
-                checked={useSampleData}
-                onChange={(e) => setUseSampleData(e.target.checked)}
-                className="mr-2"
-              />
-              Use sample data
-            </label>
           </div>
         </header>
 

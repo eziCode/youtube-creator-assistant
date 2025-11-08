@@ -5,6 +5,13 @@ import cors from "cors";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import { retrieveComments } from "../functions/comments/retrieve_comments.js";
+import { getVideos } from "../functions/dashboard/get_videos.js";
+import {
+	getChannelAnalyticsOverview,
+	getVideoAnalyticsOverview,
+} from "../functions/dashboard/get_channel_analytics.js";
+import { createCommentResponses } from "../functions/comments/create_comment_responses.js";
+import { respondToComments } from "../functions/comments/respond_to_comments.js";
 import authRouter from "./routes/auth.js";
 
 dotenv.config();
@@ -16,7 +23,7 @@ const MONGODB_URI = process.env.MONGODB_URI;
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "yca.sid";
 const SESSION_COLLECTION_NAME = process.env.SESSION_COLLECTION_NAME || "sessions";
-const SESSION_TTL_SECONDS = Number(process.env.SESSION_TTL_SECONDS) || 60 * 60 * 24 * 14; // 14 days
+const SESSION_TTL_SECONDS = Number(process.env.SESSION_TTL_SECONDS) || 60 * 60 * 24 * 14;
 const isProduction = process.env.NODE_ENV === "production";
 const sameSite = isProduction ? "none" : "lax";
 
@@ -53,6 +60,174 @@ const registerRoutes = () => {
             return res.status(500).json({ error: err.message || "failed to retrieve comments" });
         }
     });
+
+	app.post("/comments/respond", async (req, res) => {
+		const { responses: providedResponses, comments: providedComments, videoId, maxResponses } = req.body ?? {};
+
+		if (!req.session?.tokens?.accessToken) {
+			return res.status(401).json({ error: "authentication required" });
+		}
+
+		let responseMap = null;
+
+		try {
+			if (providedResponses && typeof providedResponses === "object" && !Array.isArray(providedResponses)) {
+				responseMap = providedResponses;
+			} else {
+				let sourceComments = Array.isArray(providedComments) ? providedComments : null;
+
+				if (!sourceComments) {
+					if (!videoId || typeof videoId !== "string") {
+						return res.status(400).json({
+							error:
+								"Provide either a responses map, an array of comments, or a videoId to auto-generate responses.",
+						});
+					}
+
+					sourceComments = await retrieveComments(videoId);
+				}
+
+				responseMap = await createCommentResponses(sourceComments, { maxResponses });
+			}
+
+			if (!responseMap || typeof responseMap !== "object" || Array.isArray(responseMap) || Object.keys(responseMap).length === 0) {
+				return res.status(400).json({ error: "No responses available to post" });
+			}
+
+			const result = await respondToComments(responseMap, req.session.tokens);
+
+			if (req.session && result.updatedTokens) {
+				req.session.tokens = {
+					...req.session.tokens,
+					...result.updatedTokens,
+				};
+
+				await new Promise((resolve, reject) => {
+					req.session.save((err) => {
+						if (err) reject(err);
+						else resolve();
+					});
+				});
+			}
+
+			return res.json({
+				successes: result.successes,
+				failures: result.failures,
+			});
+		} catch (err) {
+			console.error(err);
+			return res.status(500).json({ error: err.message || "failed to respond to comments" });
+		}
+	});
+
+	app.get("/dashboard/videos", async (req, res) => {
+		const { channelId, maxResults } = req.query;
+		if (!channelId) {
+			return res.status(400).json({ error: "channelId query param required" });
+		}
+
+		try {
+			const videos = await getVideos(channelId, { maxResults });
+			return res.json({ videos });
+		} catch (err) {
+			console.error(err);
+			return res.status(500).json({ error: err.message || "failed to retrieve videos" });
+		}
+	});
+
+	app.get("/dashboard/analytics/overview", async (req, res) => {
+		if (!req.session?.tokens?.accessToken) {
+			return res.status(401).json({ error: "authentication required" });
+		}
+
+		const channelId = req.session?.user?.channelId;
+		const rangeDaysRaw = req.query?.rangeDays;
+		const rangeDays =
+			rangeDaysRaw && Number.isFinite(Number(rangeDaysRaw))
+				? Number(rangeDaysRaw)
+				: undefined;
+
+		if (!channelId) {
+			return res.status(400).json({ error: "channelId unavailable for this user" });
+		}
+
+		try {
+			const result = await getChannelAnalyticsOverview({
+				channelId,
+				tokens: req.session.tokens,
+				rangeDays,
+			});
+
+			if (req.session && result.updatedTokens) {
+				req.session.tokens = {
+					...req.session.tokens,
+					...result.updatedTokens,
+				};
+
+				await new Promise((resolve, reject) => {
+					req.session.save((err) => {
+						if (err) reject(err);
+						else resolve();
+					});
+				});
+			}
+
+			return res.json({ analytics: result.analytics });
+		} catch (err) {
+			console.error(err);
+			return res.status(500).json({ error: err.message || "failed to retrieve analytics" });
+		}
+	});
+
+	app.get("/dashboard/analytics/video", async (req, res) => {
+		if (!req.session?.tokens?.accessToken) {
+			return res.status(401).json({ error: "authentication required" });
+		}
+
+		const channelId = req.session?.user?.channelId;
+		const { videoId } = req.query;
+		const rangeDaysRaw = req.query?.rangeDays;
+		const rangeDays =
+			rangeDaysRaw && Number.isFinite(Number(rangeDaysRaw))
+				? Number(rangeDaysRaw)
+				: undefined;
+
+		if (!channelId) {
+			return res.status(400).json({ error: "channelId unavailable for this user" });
+		}
+
+		if (!videoId || typeof videoId !== "string") {
+			return res.status(400).json({ error: "videoId query param required" });
+		}
+
+		try {
+			const result = await getVideoAnalyticsOverview({
+				channelId,
+				videoId,
+				tokens: req.session.tokens,
+				rangeDays,
+			});
+
+			if (req.session && result.updatedTokens) {
+				req.session.tokens = {
+					...req.session.tokens,
+					...result.updatedTokens,
+				};
+
+				await new Promise((resolve, reject) => {
+					req.session.save((err) => {
+						if (err) reject(err);
+						else resolve();
+					});
+				});
+			}
+
+			return res.json({ analytics: result.analytics });
+		} catch (err) {
+			console.error(err);
+			return res.status(500).json({ error: err.message || "failed to retrieve video analytics" });
+		}
+	});
 };
 
 const startServer = async () => {

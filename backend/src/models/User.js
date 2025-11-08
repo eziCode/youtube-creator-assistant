@@ -19,6 +19,8 @@ const userSchema = new mongoose.Schema(
         name: { type: String },
         picture: { type: String },
         locale: { type: String },
+        channelId: { type: String },
+        channelTitle: { type: String },
         tokens: tokenSchema,
         lastLoginAt: { type: Date },
     },

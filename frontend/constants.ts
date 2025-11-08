@@ -1,15 +1,7 @@
-import { Video, Comment } from './types';
+import { Comment } from './types';
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL ?? "http://localhost:4000";
-
-export const MOCK_VIDEOS: Video[] = [
-  { id: "v1", title: "Why React Still Dominates in 2025", views: 41230, watchTime: 5200, retention: 0.62, likes: 2400, commentsCount: 120 },
-  { id: "v2", title: "Top 10 JS Tips in 10 Minutes", views: 33210, watchTime: 4100, retention: 0.55, likes: 1800, commentsCount: 90 },
-  { id: "v3", title: "Full-Stack Project Walkthrough", views: 27500, watchTime: 6200, retention: 0.67, likes: 1500, commentsCount: 110 },
-  { id: "v4", title: "Interview Prep: System Design", views: 18700, watchTime: 3000, retention: 0.48, likes: 900, commentsCount: 60 },
-  { id: "v5", title: "Speedrun: Build a Todo App", views: 51200, watchTime: 7000, retention: 0.72, likes: 4200, commentsCount: 210 }
-];
 
 export const MOCK_COMMENTS: Comment[] = [
   // This comment is positive and low-risk, so it gets auto-replied.

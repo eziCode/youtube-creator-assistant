@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChannelAnalyticsOverview, Video, VideoAnalyticsOverview } from '../types';
 import Card from './Card';
 
@@ -41,6 +41,15 @@ const formatDuration = (seconds: number) => {
 const getDeltaBadgeClass = (delta: number | undefined) => {
   if (delta === undefined || delta === 0) return 'bg-slate-100 text-slate-600';
   return delta > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
+};
+
+const formatDateLabel = (date?: string) => {
+  if (!date) return '';
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+  return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
@@ -144,26 +153,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     []
   );
 
-  const viewSparkline = useMemo(() => {
-    if (!dailySeries.length) return { path: '', area: '' };
-    const values = dailySeries.map((entry) => Number(entry.views ?? 0));
-    const maxValue = Math.max(...values);
-    if (maxValue === 0) return { path: '', area: '' };
-
-    const points = values.map((value, idx) => {
-      const x = dailySeries.length === 1 ? 50 : (idx / (dailySeries.length - 1)) * 100;
-      const y = 100 - (value / maxValue) * 100;
-      return { x, y };
-    });
-
-    const linePath = points
-      .map((point, idx) => `${idx === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-      .join(' ');
-    const areaPath = `${linePath} L 100 100 L 0 100 Z`;
-
-    return { path: linePath, area: areaPath };
-  }, [dailySeries]);
-
   const peakDay = useMemo(() => {
     if (!dailySeries.length) return null;
     return dailySeries.reduce((best, entry) => {
@@ -171,6 +160,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       return (entry.views ?? 0) > (best.views ?? 0) ? entry : best;
     }, dailySeries[0]);
   }, [dailySeries]);
+
 
   const hasAnalyticsData = Boolean(analytics && totals);
   const showEmptyState =
@@ -240,36 +230,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       },
     ];
   }, [selectedVideoTotals]);
-
-  const videoSparkline = useMemo(() => {
-    if (!videoDailySeries.length) return { path: '', area: '' };
-
-    const values = videoDailySeries.map((entry) => Number(entry.views ?? 0));
-    const maxValue = Math.max(...values);
-    if (maxValue === 0) return { path: '', area: '' };
-
-    const points = values.map((value, idx) => {
-      const x = videoDailySeries.length === 1 ? 50 : (idx / (videoDailySeries.length - 1)) * 100;
-      const y = 100 - (value / maxValue) * 100;
-      return { x, y };
-    });
-
-    const linePath = points
-      .map((point, idx) => `${idx === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-      .join(' ');
-
-    const areaPath = `${linePath} L 100 100 L 0 100 Z`;
-
-    return { path: linePath, area: areaPath };
-  }, [videoDailySeries]);
-
-  const videoPeakDay = useMemo(() => {
-    if (!videoDailySeries.length) return null;
-    return videoDailySeries.reduce((best, entry) => {
-      if (!best) return entry;
-      return (entry.views ?? 0) > (best.views ?? 0) ? entry : best;
-    }, videoDailySeries[0]);
-  }, [videoDailySeries]);
 
   const videoMetricsConfig = useMemo(
     () => [
@@ -451,7 +411,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           </Card>
 
           <Card
-            title="📊 Channel Snapshot"
+            title="Channel Snapshot"
             description={
               previousPeriod
                 ? `Comparing ${currentPeriod?.startDate} → ${currentPeriod?.endDate} against ${previousPeriod.startDate} → ${previousPeriod.endDate}`
@@ -490,80 +450,34 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             </div>
           </Card>
 
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <Card title="📈 Daily Views Trend" className="lg:col-span-3">
-              {isLoadingChannel && dailySeries.length === 0 ? (
-                <div className="skeleton skeleton-panel h-48 w-full" />
-              ) : dailySeries.length === 0 ? (
-                <div className="text-sm text-slate-500">No daily data yet for the selected period.</div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="h-48 w-full">
-                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
-                      <defs>
-                        <linearGradient id="viewsGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="rgba(99, 102, 241, 0.35)" />
-                          <stop offset="100%" stopColor="rgba(99, 102, 241, 0)" />
-                        </linearGradient>
-                      </defs>
-                      {viewSparkline.area && <path d={viewSparkline.area} fill="url(#viewsGradient)" stroke="none" />}
-                      {viewSparkline.path && (
-                        <path
-                          d={viewSparkline.path}
-                          fill="none"
-                          stroke="#6366f1"
-                          strokeWidth={2}
-                          strokeLinejoin="round"
-                          strokeLinecap="round"
-                        />
-                      )}
-                    </svg>
-                  </div>
-                  {peakDay && (
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                      <span>
-                        Peak Day:{' '}
-                        <span className="font-semibold text-slate-700">{peakDay.date}</span>
-                      </span>
-                      <span>
-                        Views:{' '}
-                        <span className="font-semibold text-slate-700">{formatNumber(peakDay.views ?? 0)}</span>
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </Card>
-
-            <Card title="💡 Engagement Highlights" className="lg:col-span-2">
-              {isLoadingChannel && highlightInsights.length === 0 ? (
-                <div className="space-y-3">
-                  <div className="skeleton skeleton-sm w-48" />
-                  <div className="skeleton skeleton-sm w-56" />
-                  <div className="skeleton skeleton-sm w-40" />
-                </div>
-              ) : highlightInsights.length > 0 ? (
-                <ul className="space-y-4 text-sm text-slate-600">
-                  {highlightInsights.map((insight) => (
-                    <li key={insight.title}>
-                      <p className="text-slate-800 font-semibold">{insight.title}</p>
-                      <p className="mt-1">{insight.detail}</p>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-slate-500">
-                  Analytics insights will appear here once sufficient data is available.
-                </p>
-              )}
-            </Card>
-          </div>
+          <Card title="Engagement Highlights">
+            {isLoadingChannel && highlightInsights.length === 0 ? (
+              <div className="space-y-3">
+                <div className="skeleton skeleton-sm w-48" />
+                <div className="skeleton skeleton-sm w-56" />
+                <div className="skeleton skeleton-sm w-40" />
+              </div>
+            ) : highlightInsights.length > 0 ? (
+              <ul className="space-y-4 text-sm text-slate-600">
+                {highlightInsights.map((insight) => (
+                  <li key={insight.title}>
+                    <p className="text-slate-800 font-semibold">{insight.title}</p>
+                    <p className="mt-1">{insight.detail}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-500">
+                Analytics insights will appear here once sufficient data is available.
+              </p>
+            )}
+          </Card>
         </>
       )}
 
       {viewMode === 'video' && (
         <Card
-          title="🎬 Selected Video Overview"
+          title="Selected Video Overview"
           description={
             selectedVideo
               ? videoPeriod
@@ -650,63 +564,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 })}
               </div>
 
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-400 mb-3">Daily Performance</p>
-                {videoDailySeries.length === 0 ? (
-                  <p className="text-sm text-slate-500">
-                    No day-by-day data captured for this video yet.
-                  </p>
-                ) : (
-                  <>
-                    <div className="h-40 w-full">
-                      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
-                        <defs>
-                          <linearGradient id="videoViewsGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stopColor="rgba(249, 115, 22, 0.35)" />
-                            <stop offset="100%" stopColor="rgba(249, 115, 22, 0)" />
-                          </linearGradient>
-                        </defs>
-                        {videoSparkline.area && (
-                          <path d={videoSparkline.area} fill="url(#videoViewsGradient)" stroke="none" />
-                        )}
-                        {videoSparkline.path && (
-                          <path
-                            d={videoSparkline.path}
-                            fill="none"
-                            stroke="#f97316"
-                            strokeWidth={2}
-                            strokeLinejoin="round"
-                            strokeLinecap="round"
-                          />
-                        )}
-                      </svg>
-                    </div>
-                    {videoPeakDay && (
-                      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                        <span>
-                          Peak Day:{' '}
-                          <span className="font-semibold text-slate-700">{videoPeakDay.date}</span>
-                        </span>
-                        <span>
-                          Views:{' '}
-                          <span className="font-semibold text-slate-700">
-                            {formatNumber(videoPeakDay.views ?? 0)}
-                          </span>
-                        </span>
-                        <span>
-                          Watch Time:{' '}
-                          <span className="font-semibold text-slate-700">
-                            {formatNumber((videoPeakDay.estimatedMinutesWatched ?? 0) / 60, {
-                              maximumFractionDigits: 1,
-                            })}{' '}
-                            hrs
-                          </span>
-                        </span>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
             </div>
           )}
         </Card>

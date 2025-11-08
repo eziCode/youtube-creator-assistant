@@ -29,3 +29,11 @@ export interface ShortClip {
   end: number;
   reason: string;
 }
+
+export interface AuthenticatedUser {
+  id: string;
+  googleId: string;
+  email: string;
+  name?: string | null;
+  picture?: string | null;
+}

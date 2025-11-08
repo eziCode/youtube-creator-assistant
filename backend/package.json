@@ -19,9 +19,11 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "express-session": "^1.18.2",
+    "ffmpeg": "^0.0.4",
     "googleapis": "^165.0.0",
     "mongoose": "^8.19.3",
-    "openai": "^6.8.1"
+    "openai": "^6.8.1",
+    "ytdl-core": "npm:@distube/ytdl-core@^4.16.12"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

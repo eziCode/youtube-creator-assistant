@@ -4,14 +4,16 @@ dotenv.config();
 
 export async function getOAuth2Client() {
   const oauth2Client = new google.auth.OAuth2(
-    process.env.CLIENT_ID,
-    process.env.CLIENT_SECRET,
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
     "http://localhost:5173/oauth2callback"
   );
 
-  println("OAuth2 client created YOUTUBE MODEL");
+  console.log("OAuth2 client created YOUTUBE MODEL");
 
-  // TODO: implement OAuth token exchange for creator
+  auth2Client.setCredentials({
+    refresh_token: process.env.GOOGLE_REFRESH_TOKEN
+  });
   return oauth2Client;
 }
 
@@ -22,7 +24,7 @@ export async function getChannelVideos(auth, channelId) {
     part: ["contentDetails"],
     id: [channelId],
   });
-  println("Channel details fetched");
+  console.log("Channel details fetched");
   const uploadsId = res.data.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
 
   const videos = [];
@@ -43,7 +45,7 @@ export async function getChannelVideos(auth, channelId) {
       });
     });
 
-    println("Fetched a page of channel videos");
+    console.log("Fetched a page of channel videos");
 
     nextPageToken = plRes.data.nextPageToken;
   } while (nextPageToken);
@@ -59,7 +61,7 @@ export async function getTrendingVideos(auth, regionCode = "US") {
     regionCode,
     maxResults: 20,
   });
-  println("Trending videos fetched");
+  console.log("Trending videos fetched");
 
   return res.data.items?.map(item => ({
     title: item.snippet?.title,

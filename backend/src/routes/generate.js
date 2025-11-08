@@ -14,11 +14,14 @@ router.post("/", async (req, res) => {
         console.log("OAuth2 client obtained");
 
         const channelVideos = await getChannelVideos(oauth2Client, channelId);
+        console.log("Channel videos:", channelVideos);
+
         const trendingVideos = await getTrendingVideos(oauth2Client);
+        console.log("Trending videos:", trendingVideos);
 
         const llmOutput = await generateVideoContent(channelVideos, trendingVideos);
+        console.log("LLM output:", llmOutput);
 
-        // Extract thumbnail prompt from LLM output
         const thumbnailPrompt =
             llmOutput.match(/Thumbnail prompt:(.*)/i)?.[1]?.trim() || "Creative YouTube thumbnail";
 
@@ -32,9 +35,9 @@ router.post("/", async (req, res) => {
             thumbnail_path: thumbnailPath,
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Failed to generate content" });
+        console.error("Error in /generate route:", err);
+        // Send real error message to frontend for debugging
+        res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }
 });
-
 export default router;

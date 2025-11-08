@@ -1,6 +1,7 @@
 class Comment {
-	constructor({ id, text, author, likeCount, publishedAt, replies = [], replyCount = 0 }) {
+	constructor({ id, threadId, text, author, likeCount, publishedAt, replies = [], replyCount = 0 }) {
 		this.id = id;
+		this.threadId = threadId;
 		this.text = text;
 		this.author = author;
 		this.likeCount = likeCount;
@@ -12,6 +13,7 @@ class Comment {
 	toJSON() {
 		return {
 			id: this.id,
+			threadId: this.threadId,
 			text: this.text,
 			author: this.author,
 			likeCount: this.likeCount,
@@ -30,7 +32,8 @@ const buildAuthor = (snippet) => ({
 });
 
 const buildCommentFromThread = (thread) => {
-	const topSnippet = thread.snippet.topLevelComment.snippet;
+	const topLevelComment = thread.snippet.topLevelComment;
+	const topSnippet = topLevelComment.snippet;
 	const replies = (thread.replies?.comments || []).map((reply) => {
 		const r = reply.snippet;
 		return {
@@ -43,7 +46,8 @@ const buildCommentFromThread = (thread) => {
 	});
 
 	const comment = new Comment({
-		id: thread.id,
+		id: topLevelComment.id,
+		threadId: thread.id,
 		text: topSnippet.textDisplay,
 		author: buildAuthor(topSnippet),
 		likeCount: topSnippet.likeCount,

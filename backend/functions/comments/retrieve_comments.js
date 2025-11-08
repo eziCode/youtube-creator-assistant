@@ -37,7 +37,6 @@ const retrieveComments = async (videoId) => {
 
 		return comments;
 	} catch (err) {
-		// surface a helpful message but include original error
 		const message = err?.response?.data || err.message || err;
 		throw new Error(`Failed to retrieve comments: ${JSON.stringify(message)}`);
 	}

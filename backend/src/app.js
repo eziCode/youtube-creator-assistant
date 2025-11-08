@@ -3,15 +3,25 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
 import { retrieveComments } from "../functions/comments/retrieve_comments.js";
+import authRouter from "./routes/auth.js";
 
 dotenv.config();
 
 const app = express();
-app.use(express.json());
-app.use(cors());
+const FRONTEND_ORIGIN = process.env.FRONTEND_URL || "http://localhost:5173";
 
-const PORT = process.env.PORT || 5173;
+app.use(express.json());
+app.use(
+    cors({
+        origin: FRONTEND_ORIGIN,
+        credentials: true,
+    })
+);
+
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+app.use("/auth", authRouter);
 
 app.get("/retrieve-comments", async (req, res) => {
     const videoId = req.query.videoId;

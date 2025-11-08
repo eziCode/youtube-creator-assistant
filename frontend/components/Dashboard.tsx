@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AuthenticatedUser, Tab, Tone, Video } from '../types';
+import { AuthenticatedUser, ChannelAnalyticsOverview, Tab, Tone, Video, VideoAnalyticsOverview } from '../types';
 import { API_BASE_URL } from '../constants';
 import Sidebar from './Sidebar';
 import AnalyticsTab from './AnalyticsTab';
@@ -19,6 +19,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [tone, setTone] = useState<Tone>('Friendly');
   const [isLoadingVideos, setIsLoadingVideos] = useState<boolean>(false);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const [analytics, setAnalytics] = useState<ChannelAnalyticsOverview | null>(null);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState<boolean>(false);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  const [videoAnalytics, setVideoAnalytics] = useState<VideoAnalyticsOverview | null>(null);
+  const [isLoadingVideoAnalytics, setIsLoadingVideoAnalytics] = useState<boolean>(false);
+  const [videoAnalyticsError, setVideoAnalyticsError] = useState<string | null>(null);
 
   const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
 
@@ -28,6 +34,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       setSelectedVideo(null);
       setIsLoadingVideos(false);
       setVideoError(user ? 'No YouTube channel connected to this account yet.' : null);
+      setAnalytics(null);
+      setIsLoadingAnalytics(false);
+      setAnalyticsError(user ? 'No analytics available until a channel is connected.' : null);
+      setVideoAnalytics(null);
+      setIsLoadingVideoAnalytics(false);
+      setVideoAnalyticsError(user ? 'Select a channel video to analyze once connected.' : null);
       return;
     }
 
@@ -92,14 +104,131 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     };
   }, [apiBaseUrl, user?.channelId]);
 
+  useEffect(() => {
+    if (!user?.channelId) {
+      setAnalytics(null);
+      setIsLoadingAnalytics(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const fetchAnalytics = async () => {
+      setIsLoadingAnalytics(true);
+      setAnalyticsError(null);
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/dashboard/analytics/overview`, {
+          credentials: 'include',
+          signal: controller.signal,
+        });
+
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          const message =
+            (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string')
+              ? payload.error
+              : `Failed to load analytics (status ${response.status})`;
+          throw new Error(message);
+        }
+
+        setAnalytics(payload?.analytics ?? null);
+      } catch (err) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        console.error('[dashboard] failed to load analytics', err);
+        setAnalytics(null);
+        setAnalyticsError(err instanceof Error ? err.message : 'Failed to load analytics');
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingAnalytics(false);
+        }
+      }
+    };
+
+    fetchAnalytics();
+
+    return () => {
+      controller.abort();
+    };
+  }, [apiBaseUrl, user?.channelId]);
+
+  useEffect(() => {
+    if (!user?.channelId || !selectedVideo?.id) {
+      setVideoAnalytics(null);
+      setIsLoadingVideoAnalytics(false);
+      setVideoAnalyticsError(
+        user?.channelId
+          ? 'Select a video to explore detailed analytics.'
+          : 'Connect a channel to analyze individual videos.'
+      );
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const fetchVideoAnalytics = async () => {
+      setIsLoadingVideoAnalytics(true);
+      setVideoAnalyticsError(null);
+
+      try {
+        const response = await fetch(
+          `${apiBaseUrl}/dashboard/analytics/video?videoId=${encodeURIComponent(selectedVideo.id)}`,
+          {
+            credentials: 'include',
+            signal: controller.signal,
+          }
+        );
+
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          const message =
+            (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string')
+              ? payload.error
+              : `Failed to load video analytics (status ${response.status})`;
+          throw new Error(message);
+        }
+
+        setVideoAnalytics(payload?.analytics ?? null);
+      } catch (err) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        console.error('[dashboard] failed to load video analytics', err);
+        setVideoAnalytics(null);
+        setVideoAnalyticsError(err instanceof Error ? err.message : 'Failed to load video analytics');
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingVideoAnalytics(false);
+        }
+      }
+    };
+
+    fetchVideoAnalytics();
+
+    return () => {
+      controller.abort();
+    };
+  }, [apiBaseUrl, user?.channelId, selectedVideo?.id]);
+
   const renderContent = () => {
     switch (activeTab) {
       case 'analytics':
         return (
           <AnalyticsTab
             videos={videos}
-            isLoading={isLoadingVideos}
-            error={videoError}
+            analytics={analytics}
+            selectedVideo={selectedVideo}
+            videoAnalytics={videoAnalytics}
+            isLoadingVideos={isLoadingVideos}
+            isLoadingAnalytics={isLoadingAnalytics}
+            isLoadingVideoAnalytics={isLoadingVideoAnalytics}
+            videoError={videoError}
+            analyticsError={analyticsError}
+            videoAnalyticsError={videoAnalyticsError}
           />
         );
       case 'comments':
@@ -115,7 +244,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 font-sans">
-      <div className="max-w-7xl mx-auto p-4 md:p-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <header className="flex items-center justify-between mb-6 px-2 md:px-0">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">YouTube AI Assistant</h1>
@@ -152,7 +281,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           </div>
         </header>
 
-        <div className="grid grid-cols-12 gap-6">
+        <div className="grid grid-cols-12 gap-8">
           <Sidebar 
             activeTab={activeTab}
             setActiveTab={setActiveTab}
@@ -164,15 +293,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           />
 
           <main className="col-span-12 md:col-span-9">
-            <div className="bg-white rounded-xl p-6 shadow-sm min-h-[600px]">
+            <div className="bg-slate-50 rounded-2xl p-6 shadow-sm min-h-[620px]">
               {renderContent()}
             </div>
           </main>
         </div>
-
-        <footer className="mt-8 text-center text-sm text-slate-500">
-           For demo only — replace mock services with real YouTube Data API, Gemini, and a backend for video processing.
-        </footer>
       </div>
     </div>
   );

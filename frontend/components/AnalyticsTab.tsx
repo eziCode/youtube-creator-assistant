@@ -735,10 +735,10 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                       {metric.delta !== undefined && metric.delta !== null ? (
                         <span
                           className={`px-2 py-1 rounded-full ${(metric.delta ?? 0) > 0
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : (metric.delta ?? 0) < 0
-                                ? 'bg-rose-100 text-rose-700'
-                                : 'bg-slate-100 text-slate-600'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : (metric.delta ?? 0) < 0
+                              ? 'bg-rose-100 text-rose-700'
+                              : 'bg-slate-100 text-slate-600'
                             }`}
                         >
                           {metric.delta !== undefined && metric.delta !== null

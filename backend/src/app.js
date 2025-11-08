@@ -16,7 +16,7 @@ const MONGODB_URI = process.env.MONGODB_URI;
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "yca.sid";
 const SESSION_COLLECTION_NAME = process.env.SESSION_COLLECTION_NAME || "sessions";
-const SESSION_TTL_SECONDS = Number(process.env.SESSION_TTL_SECONDS) || 60 * 60 * 24 * 14; // 14 days
+const SESSION_TTL_SECONDS = Number(process.env.SESSION_TTL_SECONDS) || 60 * 60 * 24 * 14;
 const isProduction = process.env.NODE_ENV === "production";
 const sameSite = isProduction ? "none" : "lax";
 

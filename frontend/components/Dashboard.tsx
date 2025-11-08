@@ -325,7 +325,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         <div className="absolute top-1/3 left-1/2 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl" />
       </div>
 
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-10 px-5 py-10 sm:px-8 lg:px-10">
+      <div className="relative mx-auto flex w-full max-w-[min(96vw,1800px)] flex-col gap-10 px-5 py-10 sm:px-8 lg:px-14 xl:px-16">
         <header className="relative z-10 flex flex-col gap-6 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.55)] backdrop-blur-xl md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
             <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.3em] text-white/60">
@@ -373,7 +373,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           </div>
         </header>
 
-        <div className="grid grid-cols-12 gap-6 lg:gap-8">
+        <div className="grid gap-8 lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)] xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)] xl:gap-10">
           <Sidebar
             activeTab={activeTab}
             setActiveTab={setActiveTab}
@@ -384,8 +384,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             error={videoError}
           />
 
-          <main className="col-span-12 lg:col-span-8 xl:col-span-9">
-            <div className="min-h-[640px] rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_25px_80px_rgba(15,23,42,0.55)] backdrop-blur-2xl lg:p-8">
+          <main>
+            <div className="min-h-[640px] rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_25px_80px_rgba(15,23,42,0.55)] backdrop-blur-2xl sm:p-7 lg:p-10">
               {renderContent()}
             </div>
           </main>

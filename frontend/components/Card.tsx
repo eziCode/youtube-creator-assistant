@@ -10,7 +10,7 @@ interface CardProps {
 const Card: React.FC<CardProps> = ({ title, children, className = '', description }) => {
   return (
     <div
-      className={`group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 text-slate-100 shadow-[0_18px_45px_rgba(12,18,30,0.45)] backdrop-blur-xl transition duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-[0_22px_60px_rgba(17,24,39,0.55)] ${className}`}
+      className={`group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-7 lg:p-8 text-slate-100 shadow-[0_18px_45px_rgba(12,18,30,0.45)] backdrop-blur-xl transition duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-[0_22px_60px_rgba(17,24,39,0.55)] ${className}`}
     >
       <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
         <div className="absolute -top-28 right-0 h-48 w-48 rounded-full bg-gradient-to-br from-indigo-500/30 via-fuchsia-500/20 to-rose-400/20 blur-3xl" />

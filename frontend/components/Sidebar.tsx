@@ -37,34 +37,36 @@ const Sidebar: React.FC<SidebarProps> = ({
   const selectedVideoId = selectedVideo?.id ?? '';
 
   return (
-    <aside className="col-span-12 lg:col-span-4 xl:col-span-3 flex flex-col gap-8 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-[0_25px_70px_rgba(15,23,42,0.55)] backdrop-blur-xl lg:sticky lg:top-10">
-      <div className="space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-white/50 px-1">
+    <aside className="flex w-full flex-col gap-10 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_25px_70px_rgba(15,23,42,0.55)] backdrop-blur-xl lg:sticky lg:top-10">
+      <div className="space-y-4">
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-white/50">
           Control Center
         </p>
-        <h2 className="text-xl font-semibold text-white px-1">Workflow routes</h2>
+        <h2 className="px-1 text-2xl font-semibold text-white">Workflow routes</h2>
       </div>
 
-      <nav className="flex flex-col gap-3">
+      <nav className="flex flex-col gap-4">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id as Tab)}
-              className={`group relative flex items-center justify-between overflow-hidden rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm font-semibold text-white/70 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/10 hover:text-white/90 ${
+              className={`group relative flex items-center justify-between gap-6 overflow-hidden rounded-3xl border border-white/10 bg-white/5 px-5 py-4 text-left text-[15px] font-semibold text-white/70 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/10 hover:text-white/90 ${
                 isActive ? 'border-white/30 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-rose-500/20 text-white' : ''
               }`}
             >
-              <span className="flex items-center gap-3">
+              <span className="flex min-w-0 items-center gap-4">
                 <span
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/80 shadow-inner shadow-white/10 transition duration-300 group-hover:border-white/20 group-hover:text-white ${
+                  className={`flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/80 shadow-inner shadow-white/10 transition duration-300 group-hover:border-white/20 group-hover:text-white ${
                     isActive ? 'border-white/40 bg-gradient-to-br from-indigo-500/40 via-purple-500/40 to-rose-500/40 text-white' : ''
                   }`}
                 >
                   <span className="h-5 w-5 text-inherit [&>*]:h-full [&>*]:w-full [&>*]:text-current">{item.icon}</span>
                 </span>
-                <span className="relative z-10 leading-tight">{item.label}</span>
+                <span className="relative z-10 max-w-[160px] leading-snug text-white/80 group-hover:text-white">
+                  {item.label}
+                </span>
               </span>
               <span
                 className={`inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 text-[10px] font-semibold uppercase tracking-wide text-white/50 transition duration-300 group-hover:border-white/30 group-hover:text-white ${isActive ? 'border-white/60 bg-white/20 text-slate-900' : ''}`}
@@ -89,8 +91,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         })}
       </nav>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner shadow-white/10">
-        <div className="flex items-center justify-between">
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-inner shadow-white/10">
+        <div className="flex items-center justify-between gap-4">
           <label htmlFor="video-select" className="text-sm font-semibold text-white/80 uppercase tracking-[0.2em]">
             Selected Video
           </label>
@@ -98,7 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             Live sync
           </span>
         </div>
-        <div className="mt-3">
+        <div className="mt-4">
           <select
             id="video-select"
             value={selectedVideoId}
@@ -127,7 +129,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-white/50 shadow-inner shadow-white/10">
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-xs text-white/60 shadow-inner shadow-white/10">
         Videos are fetched directly from your connected YouTube channel. Swap between them any time to update insights.
       </div>
     </aside>

@@ -17,7 +17,6 @@ interface GeneratedVideo {
 const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userChannelId, useSample = false }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [shortsIdeas, setShortsIdeas] = useState<GeneratedVideo[]>([]);
   const [videoIdeas, setVideoIdeas] = useState<GeneratedVideo[]>([]);
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
 
@@ -30,7 +29,6 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
 
     setIsLoading(true);
     setError(null);
-    setShortsIdeas([]);
     setVideoIdeas([]);
     setExpandedVideoId(null);
 
@@ -49,8 +47,7 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
       }
 
       // Handle newer backend response that may return a single llm_output + thumbnail_path
-      if (data && (data.videos || data.shorts)) {
-        setShortsIdeas(data.shorts || []);
+      if (data && data.videos) {
         setVideoIdeas(data.videos || []);
       } else if (data && (data.llm_output || data.thumbnail_path)) {
         // Try to extract a title from the LLM output
@@ -66,11 +63,10 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
           thumbnailPath: data.thumbnail_path || "",
         };
 
-        setShortsIdeas([]);
+
         setVideoIdeas([generated]);
         setExpandedVideoId(generated.id);
       } else {
-        setShortsIdeas([]);
         setVideoIdeas([]);
       }
     } catch (err) {
@@ -119,19 +115,10 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
         disabled={isLoading || !userChannelId}
         className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
       >
-        {isLoading ? "Generating..." : "Generate Video & Shorts Ideas"}
+        {isLoading ? "Generating..." : "Generate Video Ideas"}
       </button>
 
       {error && <p className="text-red-500">{error}</p>}
-
-      {/* Shorts Ideas Section */}
-      <section>
-        <h3 className="text-lg font-semibold mb-2">Shorts Ideas</h3>
-        {shortsIdeas.length === 0 && !isLoading && <p className="text-sm text-gray-500">No shorts ideas generated yet.</p>}
-        <div className="flex flex-col">
-          {shortsIdeas.map(renderVideoCard)}
-        </div>
-      </section>
 
       {/* Video Ideas Section */}
       <section>

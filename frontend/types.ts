@@ -42,9 +42,11 @@ export interface Comment {
 }
 
 export interface ShortClip {
-  start: number;
-  end: number;
+  startTime: number;
+  endTime: number;
+  title: string;
   reason: string;
+  hook: string;
 }
 
 export interface AuthenticatedUser {

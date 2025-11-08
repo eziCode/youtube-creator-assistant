@@ -303,7 +303,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       case 'comments':
         return <CommentsTab tone={tone} />;
       case 'shorts':
-        return <ShortsGeneratorTab />;
+        return <ShortsGeneratorTab selectedVideo={selectedVideo} />;
       case 'settings':
         return <SettingsTab tone={tone} setTone={setTone} />;
       default:

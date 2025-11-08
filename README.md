@@ -11,13 +11,6 @@
    npm install
    ```
 2. Create a `.env` file in `backend/` (an example configuration is already provided) and set:
-   ```
-   PORT=4000
-   FRONTEND_URL=http://localhost:5173
-   GOOGLE_CLIENT_ID=31805517403-cipb6vqm74gp4ikbmoapsn9ubui8aml9.apps.googleusercontent.com
-   GOOGLE_CLIENT_SECRET=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
-   GOOGLE_REDIRECT_URI=http://localhost:4000/auth/google/callback
-   ```
 3. Start the server:
    ```bash
    npm run dev

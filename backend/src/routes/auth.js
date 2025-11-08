@@ -120,6 +120,42 @@ router.get("/google/callback", async (req, res) => {
             user.tokens = {};
         }
 
+        let channelId = user.channelId ?? null;
+        let channelTitle = user.channelTitle ?? null;
+
+        try {
+            const youtube = google.youtube({
+                version: "v3",
+                auth: oauth2Client,
+            });
+
+            const channelResponse = await youtube.channels.list({
+                part: "id,snippet",
+                mine: true,
+                maxResults: 1,
+            });
+
+            const channelData = channelResponse.data?.items?.[0];
+            if (channelData) {
+                channelId = channelData.id ?? channelId;
+                channelTitle = channelData.snippet?.title ?? channelTitle;
+            }
+        } catch (err) {
+            const errorMessage =
+                err?.response?.data?.error?.message ||
+                err?.message ||
+                "Unknown channel lookup error";
+            console.warn("[auth] Failed to retrieve channel details", errorMessage);
+        }
+
+        if (channelId) {
+            user.channelId = channelId;
+        }
+
+        if (channelTitle) {
+            user.channelTitle = channelTitle;
+        }
+
         if (tokens.access_token) {
             user.tokens.accessToken = tokens.access_token;
         }
@@ -152,6 +188,8 @@ router.get("/google/callback", async (req, res) => {
             email: user.email,
             name: user.name,
             picture: user.picture,
+            channelId: channelId,
+            channelTitle: channelTitle,
         };
 
         const sessionTokens = {

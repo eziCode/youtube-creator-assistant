@@ -37,38 +37,51 @@ export async function getOAuth2Client(tokens) {
 
 export async function getChannelVideos(auth, channelId) {
   const youtube = google.youtube({ version: "v3", auth });
-
-  const res = await youtube.channels.list({
-    part: ["contentDetails"],
-    id: [channelId],
-  });
-  console.log("Channel details fetched");
-  const uploadsId = res.data.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
-
-  const videos = [];
-  let nextPageToken = undefined;
-
-  do {
-    const plRes = await youtube.playlistItems.list({
-      part: ["snippet"],
-      playlistId: uploadsId,
-      maxResults: 50,
-      pageToken: nextPageToken,
+  try {
+    const res = await youtube.channels.list({
+      part: ["contentDetails"],
+      id: [channelId],
     });
+    console.log("Channel details fetched");
 
-    plRes.data.items?.forEach(item => {
-      videos.push({
-        id: item.snippet?.resourceId?.videoId,
-        title: item.snippet?.title,
+    const uploadsId = res.data.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+    if (!uploadsId) {
+      // If the uploads playlist isn't found, provide an informative error
+      const msg = `No uploads playlist found for channel ${channelId}. Response items: ${JSON.stringify(res.data.items?.map(i => i.id))}`;
+      console.warn(msg);
+      throw new Error(msg);
+    }
+
+    const videos = [];
+    let nextPageToken = undefined;
+
+    do {
+      const plRes = await youtube.playlistItems.list({
+        part: ["snippet"],
+        playlistId: uploadsId,
+        maxResults: 50,
+        pageToken: nextPageToken,
       });
-    });
 
-    console.log("Fetched a page of channel videos");
+      plRes.data.items?.forEach(item => {
+        videos.push({
+          id: item.snippet?.resourceId?.videoId,
+          title: item.snippet?.title,
+        });
+      });
 
-    nextPageToken = plRes.data.nextPageToken;
-  } while (nextPageToken);
+      console.log("Fetched a page of channel videos");
 
-  return videos;
+      nextPageToken = plRes.data.nextPageToken;
+    } while (nextPageToken);
+
+    return videos;
+  } catch (err) {
+    // Improve error message for upstream callers
+    console.error("getChannelVideos error:", err?.message || err);
+    // Re-throw so the route handler can return a 500 with details
+    throw err;
+  }
 }
 
 export async function getTrendingVideos(auth, regionCode = "US") {

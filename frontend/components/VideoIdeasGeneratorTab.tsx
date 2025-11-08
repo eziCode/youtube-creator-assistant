@@ -3,6 +3,7 @@ import { API_BASE_URL } from "../constants";
 
 interface VideoIdeasGeneratorTabProps {
   userChannelId: string | null;
+  useSample?: boolean;
 }
 
 interface GeneratedVideo {
@@ -13,7 +14,7 @@ interface GeneratedVideo {
   thumbnailPath: string;
 }
 
-const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userChannelId }) => {
+const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userChannelId, useSample = false }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shortsIdeas, setShortsIdeas] = useState<GeneratedVideo[]>([]);
@@ -38,7 +39,7 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // send cookies (session) to backend
-        body: JSON.stringify({ channelId: userChannelId }),
+        body: JSON.stringify({ channelId: userChannelId, useSample }),
       });
 
       const data = await response.json();

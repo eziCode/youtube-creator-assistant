@@ -136,7 +136,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
         <p className="mt-2 text-xs text-white/60">
           {isDemoMode
-            ? 'Open the full Outdoor Boys catalog to explore by keyword, popularity, or alphabetical order.'
+            ? 'Open the full MKBHD catalog to explore by keyword, popularity, or alphabetical order.'
             : 'Browse your uploads in a dedicated picker to quickly update analytics, comments, and shorts.'}
         </p>
 
@@ -195,7 +195,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-xs text-white/60 shadow-inner shadow-white/10">
         {isDemoMode
-          ? 'You are browsing the Outdoor Boys channel. Choose any upload to preview how analytics, comments, and shorts spring to life for a top-tier creator.'
+          ? 'You are browsing the MKBHD channel. Choose any upload to preview how analytics, comments, and shorts spring to life for a top-tier creator.'
           : 'Videos are fetched directly from your connected YouTube channel. Pick one to refresh analytics, comment insights, and shorts suggestions.'}
       </div>
     </aside>

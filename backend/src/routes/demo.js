@@ -1,6 +1,6 @@
 import express from "express";
 import {
-	OUTDOOR_BOYS_CHANNEL_ID,
+	DEMO_CHANNEL_ID,
 	fetchChannelProfile,
 	searchChannelVideos,
 	fetchUploadsPlaylistVideos,
@@ -14,18 +14,18 @@ import {
 const router = express.Router();
 
 const buildDemoUser = (channelProfile) => {
-	const displayName = channelProfile?.title ?? "Outdoor Boys";
+	const displayName = channelProfile?.title ?? "MKBHD";
 	const thumbnail =
 		channelProfile?.thumbnails?.high?.url ??
 		channelProfile?.thumbnails?.default?.url ??
 		null;
 
 	return {
-		id: "demo-user-outdoor-boys",
+		id: "demo-user-mkbhd",
 		googleId: "demo-google-user",
-		email: "demo@outdoor-boys.example.com",
+		email: "demo@mkbhd.example.com",
 		name: `${displayName} (Demo)`,
-		channelId: channelProfile?.id ?? OUTDOOR_BOYS_CHANNEL_ID,
+		channelId: channelProfile?.id ?? DEMO_CHANNEL_ID,
 		channelTitle: displayName,
 		picture: thumbnail,
 	};

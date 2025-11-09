@@ -604,10 +604,10 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
       {isDemoMode && (
         <div className="rounded-2xl border border-sky-400/25 bg-sky-500/15 p-4 text-sm text-sky-100 shadow-inner shadow-sky-500/15">
-          Demo Mode is active — you&apos;re viewing Outdoor Boys metrics. Public stats come from YouTube,
+          Demo Mode is active — you&apos;re viewing MKBHD metrics. Public stats come from YouTube,
           while private insights are simulated to illustrate how the assistant guides a creator like{' '}
           <span className="font-semibold text-white">
-            {demoChannelTitle ?? 'Outdoor Boys'}
+            {demoChannelTitle ?? 'MKBHD'}
           </span>
           .
         </div>

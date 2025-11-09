@@ -15,7 +15,7 @@ import {
 } from '../services/demoService';
 import VideoLibraryModal, { SortDirection, SortKey } from './VideoLibraryModal';
 
-const DEMO_CHANNEL_ID = 'UCfpCQ89W9wjkHc8J_6eTbBg';
+const DEMO_CHANNEL_ID = 'UCBJycsmduvYEL83R_U4JriQ';
 
 interface DashboardProps {
   user: AuthenticatedUser | null;
@@ -61,10 +61,34 @@ const Dashboard: React.FC<DashboardProps> = ({
   const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
   const demoChannelTitle = useMemo(() => {
     if (!demoChannel || typeof demoChannel !== 'object') {
-      return 'Outdoor Boys';
+      return 'MKBHD';
     }
     const maybeTitle = (demoChannel as { title?: unknown }).title;
-    return typeof maybeTitle === 'string' && maybeTitle.length > 0 ? maybeTitle : 'Outdoor Boys';
+    return typeof maybeTitle === 'string' && maybeTitle.length > 0 ? maybeTitle : 'MKBHD';
+  }, [demoChannel]);
+
+  const demoChannelThumbnail = useMemo(() => {
+    if (!demoChannel || typeof demoChannel !== 'object') {
+      return null;
+    }
+    const thumbnails = (demoChannel as {
+      thumbnails?: {
+        high?: { url?: string };
+        medium?: { url?: string };
+        default?: { url?: string };
+      };
+    }).thumbnails;
+
+    const high = thumbnails?.high?.url;
+    const medium = thumbnails?.medium?.url;
+    const def = thumbnails?.default?.url;
+    return typeof high === 'string'
+      ? high
+      : typeof medium === 'string'
+      ? medium
+      : typeof def === 'string'
+      ? def
+      : null;
   }, [demoChannel]);
 
   useEffect(() => {
@@ -531,7 +555,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setIsLoadingVideoAnalytics(false);
       setVideoAnalyticsError(
         isDemoMode
-          ? 'Select a video from the Outdoor Boys library to view demo analytics.'
+          ? 'Select a video from the MKBHD library to view demo analytics.'
           : user?.channelId
           ? 'Select a video to explore detailed analytics.'
           : 'Connect a channel to analyze individual videos.'
@@ -715,34 +739,56 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
-            {user && (
+            {isDemoMode ? (
               <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-inner shadow-white/10">
-                {user.picture ? (
+                {demoChannelThumbnail ? (
                   <img
-                    src={user.picture}
-                    alt={user.name ?? user.email}
+                    src={demoChannelThumbnail}
+                    alt={`${demoChannelTitle} channel art`}
                     className="h-11 w-11 rounded-full border border-white/20 object-cover shadow-lg shadow-indigo-500/20"
                   />
                 ) : (
                   <div className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-500/20 text-lg font-semibold text-indigo-200 shadow-inner shadow-indigo-500/20">
-                    {(user.name ?? user.email ?? '?').charAt(0).toUpperCase()}
+                    {demoChannelTitle.charAt(0).toUpperCase()}
                   </div>
                 )}
                 <div className="text-sm">
                   <p className="font-semibold text-white/90 leading-tight">
-                    {user.name ?? user.email}
+                    {demoChannelTitle}
                   </p>
-                  {user.email && (
-                    <p className="text-white/60">{user.email}</p>
-                  )}
+                  <p className="text-white/60">demo@mkbhd.com</p>
                 </div>
               </div>
+            ) : (
+              user && (
+                <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-inner shadow-white/10">
+                  {user.picture ? (
+                    <img
+                      src={user.picture}
+                      alt={user.name ?? user.email}
+                      className="h-11 w-11 rounded-full border border-white/20 object-cover shadow-lg shadow-indigo-500/20"
+                    />
+                  ) : (
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-500/20 text-lg font-semibold text-indigo-200 shadow-inner shadow-indigo-500/20">
+                      {(user.name ?? user.email ?? '?').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="text-sm">
+                    <p className="font-semibold text-white/90 leading-tight">
+                      {user.name ?? user.email}
+                    </p>
+                    {user.email && (
+                      <p className="text-white/60">{user.email}</p>
+                    )}
+                  </div>
+                </div>
+              )
             )}
             <button
               onClick={onLogout}
               className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_22px_40px_rgba(99,102,241,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_60px_rgba(99,102,241,0.45)] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
             >
-              Sign out
+              {isDemoMode ? 'Exit demo' : 'Sign out'}
             </button>
           </div>
         </header>

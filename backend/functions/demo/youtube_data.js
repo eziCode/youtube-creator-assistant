@@ -1,7 +1,7 @@
 import axios from "axios";
 
-const OUTDOOR_BOYS_CHANNEL_ID =
-	process.env.DEMO_CHANNEL_ID || "UCfpCQ89W9wjkHc8J_6eTbBg";
+const DEMO_CHANNEL_ID =
+	process.env.DEMO_CHANNEL_ID || "UCBJycsmduvYEL83R_U4JriQ";
 
 const MAX_RESULTS = 25;
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
@@ -53,7 +53,7 @@ const normalizeVideo = (item) => {
 	};
 };
 
-const fetchChannelProfile = async (channelId = OUTDOOR_BOYS_CHANNEL_ID) => {
+const fetchChannelProfile = async (channelId = DEMO_CHANNEL_ID) => {
 	const apiKey = ensureApiKey();
 
 	const { data } = await axios.get(`${YOUTUBE_API_BASE}/channels`, {
@@ -67,7 +67,7 @@ const fetchChannelProfile = async (channelId = OUTDOOR_BOYS_CHANNEL_ID) => {
 
 	const channel = data?.items?.[0];
 	if (!channel) {
-		throw new Error("Outdoor Boys channel not found via YouTube Data API.");
+		throw new Error("MKBHD channel not found via YouTube Data API.");
 	}
 
 	const snippet = channel.snippet ?? {};
@@ -132,7 +132,7 @@ const fetchVideosByIds = async (videoIds) => {
 };
 
 const searchChannelVideos = async ({
-	channelId = OUTDOOR_BOYS_CHANNEL_ID,
+	channelId = DEMO_CHANNEL_ID,
 	query,
 	pageToken,
 	pageSize = MAX_RESULTS,
@@ -183,7 +183,7 @@ const searchChannelVideos = async ({
 };
 
 const fetchUploadsPlaylistVideos = async ({
-	channelId = OUTDOOR_BOYS_CHANNEL_ID,
+	channelId = DEMO_CHANNEL_ID,
 	pageToken,
 	pageSize = MAX_RESULTS,
 }) => {
@@ -230,7 +230,7 @@ const fetchUploadsPlaylistVideos = async ({
 };
 
 export {
-	OUTDOOR_BOYS_CHANNEL_ID,
+	DEMO_CHANNEL_ID,
 	fetchChannelProfile,
 	searchChannelVideos,
 	fetchUploadsPlaylistVideos,

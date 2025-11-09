@@ -122,7 +122,7 @@ const VideoLibraryModal: React.FC<VideoLibraryModalProps> = ({
             <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/50">
               Video Browser
             </p>
-            <h2 className="text-2xl font-semibold text-white">Find the perfect Outdoor Boys upload</h2>
+            <h2 className="text-2xl font-semibold text-white">Find the perfect MKBHD upload</h2>
           </div>
           <button
             onClick={onClose}

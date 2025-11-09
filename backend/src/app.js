@@ -15,6 +15,7 @@ import {
 } from "../functions/dashboard/get_channel_analytics.js";
 import { createCommentResponses } from "../functions/comments/create_comment_responses.js";
 import { respondToComments } from "../functions/comments/respond_to_comments.js";
+import { deleteComment } from "../functions/comments/delete_comment.js";
 import { generateShortsIdeas } from "../functions/shorts/create_shorts.js";
 import { generateCommentReply } from "../functions/comments/generate_comment_reply.js";
 import {
@@ -352,6 +353,41 @@ const registerRoutes = () => {
 		} catch (err) {
 			console.error("[comments] failed to generate reply", err);
 			return res.status(500).json({ error: err.message || "failed to generate reply" });
+		}
+	});
+
+	app.delete("/comments/:commentId", async (req, res) => {
+		if (!req.session?.tokens?.accessToken) {
+			return res.status(401).json({ error: "authentication required" });
+		}
+
+		const { commentId } = req.params ?? {};
+
+		if (!commentId || typeof commentId !== "string") {
+			return res.status(400).json({ error: "commentId path parameter is required" });
+		}
+
+		try {
+			const result = await deleteComment(commentId, req.session.tokens);
+
+			if (req.session && result.updatedTokens) {
+				req.session.tokens = {
+					...req.session.tokens,
+					...result.updatedTokens,
+				};
+
+				await new Promise((resolve, reject) => {
+					req.session.save((err) => {
+						if (err) reject(err);
+						else resolve();
+					});
+				});
+			}
+
+			return res.json({ success: true });
+		} catch (err) {
+			console.error("[comments] failed to delete comment", err);
+			return res.status(500).json({ error: err.message || "failed to delete comment" });
 		}
 	});
 

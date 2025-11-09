@@ -203,18 +203,18 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
   };
 
   return (
-    <div className="flex flex-col gap-8 overflow-y-auto max-h-[calc(100vh-150px)]">
-      <h2 className="text-xl font-bold">Video Ideas Generator</h2>
+    <div className="flex max-h-[calc(100vh-150px)] flex-col gap-8 overflow-y-auto text-white">
+      <h2 className="text-3xl font-semibold text-white drop-shadow-sm">Video Ideas Generator</h2>
 
       <button
         onClick={handleGenerate}
         disabled={isLoading || !userChannelId}
-        className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+        className="w-fit rounded-full bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_18px_45px_rgba(99,102,241,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(99,102,241,0.45)] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/50 disabled:shadow-none"
       >
         {isLoading ? "Generating..." : "Generate Video & Shorts Ideas"}
       </button>
 
-      {error && <p className="text-red-500">{error}</p>}
+      {error && <p className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-200 shadow-inner shadow-rose-500/10">{error}</p>}
 
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-gray-700">
@@ -257,18 +257,18 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
       </div>
 
       {/* Shorts Ideas Section */}
-      <section>
-        <h3 className="text-lg font-semibold mb-2">Shorts Ideas</h3>
-        {shortsIdeas.length === 0 && !isLoading && <p className="text-sm text-gray-500">No shorts ideas generated yet.</p>}
+      <section className="space-y-3">
+        <h3 className="text-lg font-semibold text-white">Shorts Ideas</h3>
+        {shortsIdeas.length === 0 && !isLoading && <p className="text-sm text-white/60">No shorts ideas generated yet.</p>}
         <div className="flex flex-col">
           {shortsIdeas.map(renderVideoCard)}
         </div>
       </section>
 
       {/* Video Ideas Section */}
-      <section>
-        <h3 className="text-lg font-semibold mb-2">Video Ideas</h3>
-        {videoIdeas.length === 0 && !isLoading && <p className="text-sm text-gray-500">No video ideas generated yet.</p>}
+      <section className="space-y-3">
+        <h3 className="text-lg font-semibold text-white">Video Ideas</h3>
+        {videoIdeas.length === 0 && !isLoading && <p className="text-sm text-white/60">No video ideas generated yet.</p>}
         <div className="flex flex-col">
           {videoIdeas.map(renderVideoCard)}
         </div>

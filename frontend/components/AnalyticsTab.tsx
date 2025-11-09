@@ -24,6 +24,8 @@ interface AnalyticsTabProps {
   customEndDate?: string;
   onChangeCustomDateRange?: (startDate: string, endDate: string) => void;
   channelStartDate?: string;
+  isDemoMode?: boolean;
+  demoChannelTitle?: string;
 }
 
 const formatNumber = (value: number, options?: Intl.NumberFormatOptions) =>
@@ -45,11 +47,6 @@ const formatDuration = (seconds: number) => {
     return `${hours}h ${remainingMinutes}m`;
   }
   return `${minutes}m ${secs.toString().padStart(2, '0')}s`;
-};
-
-const getDeltaBadgeClass = (delta: number | undefined) => {
-  if (delta === undefined || delta === 0) return 'bg-slate-100 text-slate-600';
-  return delta > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
 };
 
 const formatIsoDate = (iso?: string | null) => {
@@ -174,6 +171,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   customEndDate,
   onChangeCustomDateRange,
   channelStartDate,
+  isDemoMode = false,
+  demoChannelTitle,
 }) => {
   const [viewMode, setViewMode] = useState<'channel' | 'video'>('channel');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -428,9 +427,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     if (totals.netSubscribers && totals.netSubscribers.delta !== null) {
       insights.push({
         title: 'Subscriber Impact',
-        detail: `Net subscribers ${totals.netSubscribers.delta >= 0 ? 'increased' : 'decreased'} by ${
-          totals.netSubscribers.delta >= 0 ? '+' : ''
-        }${formatNumber(totals.netSubscribers.delta)}.`,
+        detail: `Net subscribers ${totals.netSubscribers.delta >= 0 ? 'increased' : 'decreased'} by ${totals.netSubscribers.delta >= 0 ? '+' : ''
+          }${formatNumber(totals.netSubscribers.delta)}.`,
       });
     }
 
@@ -526,22 +524,22 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   );
 
   return (
-    <section className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-800">Analytics & Insights</h2>
-          <p className="text-sm text-slate-500 mt-1">
+    <section className="space-y-10 text-white">
+      <div className="flex flex-wrap items-center justify-between gap-6">
+        <div className="space-y-2">
+          <h2 className="text-3xl font-semibold text-white drop-shadow-sm">Analytics & Insights</h2>
+          <p className="text-sm text-white/60">
             {isLoadingChannel
               ? 'Syncing latest stats…'
               : isCustomRangeActive && customStartDate && customEndDate
-              ? `Reporting ${formatIsoDate(customStartDate)} → ${formatIsoDate(customEndDate)}`
-              : hasAnalyticsData && currentPeriod
-              ? `Reporting ${formatIsoDate(currentPeriod.startDate)} → ${formatIsoDate(currentPeriod.endDate)}`
-              : `Tracking ${videos.length} video${videos.length === 1 ? '' : 's'}`}
+                ? `Reporting ${formatIsoDate(customStartDate)} → ${formatIsoDate(customEndDate)}`
+                : hasAnalyticsData && currentPeriod
+                ? `Reporting ${formatIsoDate(currentPeriod.startDate)} → ${formatIsoDate(currentPeriod.endDate)}`
+                : `Tracking ${videos.length} video${videos.length === 1 ? '' : 's'}`}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 p-1">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1 shadow-inner shadow-white/10">
             {[7, 28, 90].map((days) => {
               const isActive = !isCustomRangeActive && analyticsRangeDays === days;
               return (
@@ -549,8 +547,10 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   key={days}
                   type="button"
                   onClick={() => handlePresetClick(days)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-full transition ${
-                    isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  className={`px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+                    isActive
+                      ? 'rounded-full bg-gradient-to-r from-indigo-500/80 to-fuchsia-500/80 text-white shadow-[0_12px_25px_rgba(99,102,241,0.45)]'
+                      : 'text-white/60 hover:text-white'
                   }`}
                   aria-pressed={isActive}
                 >
@@ -561,15 +561,17 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             <button
               type="button"
               onClick={() => setShowDatePicker(true)}
-              className={`px-3 py-1 text-xs font-semibold rounded-full transition ${
-                isCustomRangeActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              className={`px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+                isCustomRangeActive
+                  ? 'rounded-full bg-gradient-to-r from-indigo-500/80 to-fuchsia-500/80 text-white shadow-[0_12px_25px_rgba(99,102,241,0.45)]'
+                  : 'text-white/60 hover:text-white'
               }`}
               aria-pressed={isCustomRangeActive}
             >
               Custom
             </button>
           </div>
-          <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 p-1">
+          <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1 shadow-inner shadow-white/10">
             {([
               { id: 'channel' as const, label: 'Channel' },
               { id: 'video' as const, label: 'Video' },
@@ -584,9 +586,11 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                     if (disabled) return;
                     setViewMode(mode.id);
                   }}
-                  className={`px-3 py-1 text-xs font-semibold rounded-full transition ${
-                    isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+                    isActive
+                      ? 'rounded-full bg-gradient-to-r from-sky-500/80 to-indigo-500/80 text-white shadow-[0_12px_25px_rgba(59,130,246,0.35)]'
+                      : 'text-white/60 hover:text-white'
+                  } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
                   aria-pressed={isActive}
                   disabled={disabled}
                 >
@@ -598,22 +602,33 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         </div>
       </div>
 
+      {isDemoMode && (
+        <div className="rounded-2xl border border-sky-400/25 bg-sky-500/15 p-4 text-sm text-sky-100 shadow-inner shadow-sky-500/15">
+          Demo Mode is active — you&apos;re viewing Outdoor Boys metrics. Public stats come from YouTube,
+          while private insights are simulated to illustrate how the assistant guides a creator like{' '}
+          <span className="font-semibold text-white">
+            {demoChannelTitle ?? 'Outdoor Boys'}
+          </span>
+          .
+        </div>
+      )}
+
       {showDatePicker && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm"
           onClick={() => setShowDatePicker(false)}
         >
           <div
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+            className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/80 p-6 text-white shadow-[0_25px_60px_rgba(15,23,42,0.6)] backdrop-blur-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold text-slate-900">Select custom range</h3>
-            <p className="mt-1 text-sm text-slate-500">
+            <h3 className="text-lg font-semibold text-white">Select custom range</h3>
+            <p className="mt-1 text-sm text-white/60">
               Pick a start and end date to drill into a specific window.
             </p>
 
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+              <label className="flex flex-col gap-2 text-sm font-semibold text-white/80">
                 Start date
                 <input
                   type="date"
@@ -633,11 +648,11 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                       return prev < clamped ? clamped : prev;
                     });
                   }}
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white/80 shadow-inner shadow-black/40 transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/40"
                 />
               </label>
 
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+              <label className="flex flex-col gap-2 text-sm font-semibold text-white/80">
                 End date
                 <input
                   type="date"
@@ -659,13 +674,13 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                     }
                     setTempEndDate(clamped);
                   }}
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white/80 shadow-inner shadow-black/40 transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/40"
                 />
               </label>
             </div>
 
             {tempStartDate && tempEndDate && !isCustomRangeReady && (
-              <p className="mt-2 text-xs font-medium text-rose-600">
+              <p className="mt-2 text-xs font-medium text-rose-300">
                 Start date must be on or before the end date.
               </p>
             )}
@@ -674,7 +689,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               <button
                 type="button"
                 onClick={() => setShowDatePicker(false)}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white/70 transition hover:border-white/20 hover:bg-white/5 hover:text-white"
               >
                 Cancel
               </button>
@@ -682,7 +697,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 type="button"
                 onClick={handleApplyCustomRange}
                 disabled={!isCustomRangeReady}
-                className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(99,102,241,0.4)] transition hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none"
               >
                 Apply range
               </button>
@@ -692,13 +707,13 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       )}
 
       {viewMode === 'channel' && (analyticsError || videoError) && (
-        <div className="p-4 border border-rose-200 bg-rose-50 text-rose-700 text-sm rounded-md">
+        <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-200 shadow-inner shadow-rose-500/10">
           {analyticsError ?? videoError}
         </div>
       )}
 
       {viewMode === 'channel' && showEmptyState && (
-        <div className="p-4 border border-slate-200 bg-slate-50 text-slate-600 text-sm rounded-md">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/60 shadow-inner shadow-white/5">
           We couldn&apos;t retrieve analytics for this channel yet. Try again after publishing new videos or reconnecting your YouTube account.
         </div>
       )}
@@ -718,7 +733,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 ? Array.from({ length: 3 }).map((_, idx) => (
                     <div
                       key={`channel-pulse-skeleton-${idx}`}
-                      className="rounded-xl border border-slate-200 px-4 py-5 shadow-sm flex flex-col gap-3 bg-white"
+                      className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-5 shadow-inner shadow-white/5"
                     >
                       <div className="skeleton skeleton-xs w-20 rounded-full" />
                       <div className="skeleton skeleton-xl w-28" />
@@ -731,38 +746,36 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 : channelHeroMetrics.map((metric) => (
                     <div
                       key={metric.label}
-                      className="rounded-xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 px-4 py-5 shadow-sm flex flex-col gap-3"
+                      className="flex flex-col gap-3 rounded-2xl border border-white/15 bg-gradient-to-br from-slate-900/70 via-slate-900/40 to-indigo-900/40 px-5 py-6 shadow-[0_14px_35px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-white/30"
                     >
-                      <div className="text-xs uppercase tracking-wide text-slate-500">{metric.label}</div>
-                      <div className="text-2xl font-semibold text-slate-900">{metric.value}</div>
-                      <div className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
+                      <div className="text-xs uppercase tracking-[0.25em] text-white/50">{metric.label}</div>
+                      <div className="text-3xl font-semibold text-white">{metric.value}</div>
+                      <div className="inline-flex items-center gap-2 text-xs font-medium text-white/70">
                         {metric.delta !== undefined && metric.delta !== null ? (
                           <span
-                            className={`px-2 py-1 rounded-full ${
+                            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
                               (metric.delta ?? 0) > 0
-                                ? 'bg-emerald-100 text-emerald-700'
+                                ? 'bg-emerald-500/15 text-emerald-200'
                                 : (metric.delta ?? 0) < 0
-                                ? 'bg-rose-100 text-rose-700'
-                                : 'bg-slate-100 text-slate-600'
+                                ? 'bg-rose-500/15 text-rose-200'
+                                : 'bg-white/10 text-white/60'
                             }`}
                           >
-                            {metric.delta !== undefined && metric.delta !== null
-                              ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
-                                  metric.deltaRatio
-                                )}`
-                              : '—'}
+                            {`${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
+                              metric.deltaRatio,
+                            )}`}
                           </span>
                         ) : (
-                          <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-500">—</span>
+                          <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/60">—</span>
                         )}
-                        <span className="text-slate-500">
+                        <span className="text-white/50">
                           {previousPeriod ? 'vs previous' : isCustomRangeActive ? 'custom range' : 'current window'}
                         </span>
                       </div>
                     </div>
                   ))}
               {channelHeroMetrics.length === 0 && !isLoadingChannel && (
-                <div className="col-span-full text-sm text-slate-500">
+                <div className="col-span-full text-sm text-white/60">
                   No channel metrics available for this window.
                 </div>
               )}
@@ -791,33 +804,37 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 const metric = totals?.[key];
                 return (
                   <div key={key} className="space-y-2">
-                    <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
+                    <p className="text-xs uppercase tracking-[0.25em] text-white/40">{label}</p>
                     {isLoadingChannel ? (
                       <div className="skeleton skeleton-lg w-24" />
                     ) : metric ? (
                       <>
-                        <div className="text-2xl font-semibold text-slate-800">{format(metric.value)}</div>
+                        <div className="text-2xl font-semibold text-white">{format(metric.value)}</div>
                         <div className="flex items-center gap-2 text-xs">
                           {metric.delta !== undefined && metric.delta !== null ? (
                             <span
-                              className={`inline-flex items-center px-2 py-1 rounded-full font-medium ${getDeltaBadgeClass(
-                                metric.delta
-                              )}`}
+                              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 font-semibold ${
+                                metric.delta > 0
+                                  ? 'bg-emerald-500/15 text-emerald-200'
+                                  : metric.delta < 0
+                                  ? 'bg-rose-500/15 text-rose-200'
+                                  : 'bg-white/10 text-white/60'
+                              }`}
                             >
                               {metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} {formatPercent(metric.deltaRatio)}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full font-medium bg-slate-100 text-slate-500">
+                            <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 font-semibold text-white/60">
                               —
                             </span>
                           )}
-                          <span className="text-slate-500">
+                          <span className="text-white/50">
                             {previousPeriod ? 'vs previous' : isCustomRangeActive ? 'custom range' : 'current window'}
                           </span>
                         </div>
                       </>
                     ) : (
-                      <p className="text-sm text-slate-500">No data available</p>
+                      <p className="text-sm text-white/50">No data available</p>
                     )}
                   </div>
                 );
@@ -833,16 +850,16 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 <div className="skeleton skeleton-sm w-40" />
               </div>
             ) : highlightInsights.length > 0 ? (
-              <ul className="space-y-4 text-sm text-slate-600">
+              <ul className="space-y-4 text-sm text-white/70">
                 {highlightInsights.map((insight) => (
                   <li key={insight.title}>
-                    <p className="text-slate-800 font-semibold">{insight.title}</p>
-                    <p className="mt-1">{insight.detail}</p>
+                    <p className="font-semibold text-white">{insight.title}</p>
+                    <p className="mt-1 text-white/70">{insight.detail}</p>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-white/60">
                 Analytics insights will appear here once sufficient data is available.
               </p>
             )}
@@ -858,15 +875,15 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               ? 'Pick a published video from the sidebar to explore its performance.'
               : (
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-slate-500">{selectedVideo.title}</span>
+                    <span className="font-medium text-white/70">{selectedVideo.title}</span>
                     {isLoadingVideoAnalytics ? (
                       <div className="skeleton skeleton-xs w-32" />
                     ) : isCustomRangeActive && customStartDate && customEndDate ? (
-                      <span className="text-slate-500">
+                      <span className="text-white/60">
                         {formatIsoDate(customStartDate)} → {formatIsoDate(customEndDate)}
                       </span>
                     ) : videoPeriod ? (
-                      <span className="text-slate-500">
+                      <span className="text-white/60">
                         {formatIsoDate(videoPeriod.startDate)} → {formatIsoDate(videoPeriod.endDate)}
                       </span>
                     ) : null}
@@ -875,59 +892,59 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           }
         >
           {!selectedVideo ? (
-            <p className="text-sm text-slate-500">Select a video from the sidebar to dive into specifics.</p>
+            <p className="text-sm text-white/60">Select a video from the sidebar to dive into specifics.</p>
           ) : (
             <div className="space-y-6">
               {bestThumbnail && (
-                <div className="rounded-3xl bg-gradient-to-br from-white via-slate-50 to-slate-100 p-[1px] shadow-lg ring-1 ring-slate-200/70">
-                  <div className="flex flex-col gap-5 rounded-3xl bg-white p-5 lg:flex-row lg:items-center lg:gap-8">
-                    <div className="relative w-full overflow-hidden rounded-2xl bg-slate-100 shadow-xl ring-1 ring-slate-200/70 lg:w-[360px]">
+                <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/60 via-slate-900/40 to-indigo-900/40 p-[1px] shadow-[0_18px_50px_rgba(15,23,42,0.55)]">
+                  <div className="flex flex-col gap-5 rounded-3xl border border-white/10 bg-slate-950/70 p-5 lg:flex-row lg:items-center lg:gap-8">
+                    <div className="relative w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60 shadow-[0_18px_45px_rgba(15,23,42,0.45)] lg:w-[360px]">
                       <img
                         src={bestThumbnail.url}
                         alt={selectedVideo.title}
                         className="h-full w-full object-cover"
                         loading="lazy"
                       />
-                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-slate-900/70 to-transparent px-4 py-3 text-xs text-white/90">
-                        <span className="pr-4 font-medium truncate drop-shadow">{selectedVideo.title}</span>
+                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-slate-950/90 to-transparent px-4 py-3 text-xs text-white/90">
+                        <span className="pr-4 font-medium truncate drop-shadow-lg">{selectedVideo.title}</span>
                         {videoWatchUrl && (
                           <a
                             href={videoWatchUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-800 shadow-sm transition hover:bg-white"
+                            className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-900 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                           >
                             Watch
                           </a>
                         )}
                       </div>
                     </div>
-                    <div className="flex w-full flex-col gap-4 text-sm text-slate-600">
+                    <div className="flex w-full flex-col gap-4 text-sm text-white/70">
                       <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Thumbnail preview</p>
-                        <h3 className="mt-2 text-lg font-semibold text-slate-900">
+                        <p className="text-xs uppercase tracking-[0.3em] text-white/50">Thumbnail preview</p>
+                        <h3 className="mt-2 text-lg font-semibold text-white">
                           How viewers first encounter this video
                         </h3>
                       </div>
-                      <p className="leading-relaxed text-slate-600">
+                      <p className="leading-relaxed text-white/70">
                         Use this snapshot to sense-check your packaging. The brighter the focal point and title, the more
                         likely it pops in crowded feeds.
                       </p>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
                         {bestThumbnail.width > 0 && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-emerald-600 ring-1 ring-emerald-100">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-500/15 px-3 py-1 text-emerald-200 shadow-inner shadow-emerald-500/10">
                             <span className="h-2 w-2 rounded-full bg-emerald-400" />
                             {bestThumbnail.width}×{bestThumbnail.height}
                           </span>
                         )}
                         {selectedVideo.publishedAt && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1 text-sky-600 ring-1 ring-sky-100">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-sky-300/30 bg-sky-500/15 px-3 py-1 text-sky-200 shadow-inner shadow-sky-500/10">
                             <span className="h-2 w-2 rounded-full bg-sky-400" />
                             {new Date(selectedVideo.publishedAt).toLocaleDateString()}
                           </span>
                         )}
                         {selectedVideo.channelTitle && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-3 py-1 text-violet-600 ring-1 ring-violet-100">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-violet-300/30 bg-violet-500/15 px-3 py-1 text-violet-200 shadow-inner shadow-violet-500/10">
                             <span className="h-2 w-2 rounded-full bg-violet-400" />
                             {selectedVideo.channelTitle}
                           </span>
@@ -939,7 +956,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                             href={videoWatchUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 px-4 py-2 text-xs font-semibold text-white shadow-[0_20px_45px_rgba(99,102,241,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(99,102,241,0.45)]"
                           >
                             Open on YouTube
                             <svg
@@ -964,21 +981,21 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               )}
 
               {videoAnalyticsError ? (
-                <div className="p-4 border border-rose-200 bg-rose-50 text-rose-700 text-sm rounded-md">
+                <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-200 shadow-inner shadow-rose-500/10">
                   {videoAnalyticsError}
                 </div>
               ) : (
                 <>
-                  <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-white/60">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-700">Video:</span>
-                      <span className="text-slate-600 truncate max-w-md">{selectedVideo.title}</span>
+                      <span className="font-semibold text-white/80">Video:</span>
+                      <span className="max-w-md truncate text-white/70">{selectedVideo.title}</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       {selectedVideo.publishedAt && (
                         <span>
                           Published{' '}
-                          <span className="font-medium text-slate-700">
+                          <span className="font-medium text-white/80">
                             {new Date(selectedVideo.publishedAt).toLocaleDateString()}
                           </span>
                         </span>
@@ -987,7 +1004,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         {isLoadingVideoAnalytics ? (
                           <div className="skeleton skeleton-xs w-36" />
                         ) : videoPreviousPeriod ? (
-                          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
+                          <span className="text-xs font-semibold text-white rounded-full border border-white/10 bg-white/10 px-3 py-1">
                             vs {videoPreviousPeriod.startDate} → {videoPreviousPeriod.endDate}
                           </span>
                         ) : null}
@@ -1015,15 +1032,15 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         {videoHeroMetrics.map((metric) => (
                           <div
                             key={metric.label}
-                            className="rounded-xl border border-slate-200 px-4 py-4 bg-white flex flex-col gap-2"
+                            className="flex flex-col gap-2 rounded-2xl border border-white/15 bg-slate-950/60 px-5 py-4 shadow-[0_14px_35px_rgba(15,23,42,0.45)]"
                           >
-                            <p className="text-xs uppercase tracking-wide text-slate-400">{metric.label}</p>
-                            <div className="text-xl font-semibold text-slate-800">{metric.value}</div>
-                            <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 w-max">
+                            <p className="text-xs uppercase tracking-[0.25em] text-white/40">{metric.label}</p>
+                            <div className="text-2xl font-semibold text-white">{metric.value}</div>
+                            <div className="inline-flex w-max items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/70">
                               {metric.delta !== undefined && metric.delta !== null
                                 ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
-                                    metric.deltaRatio
-                                  )}`
+                                  metric.deltaRatio
+                                )}`
                                 : '—'}
                             </div>
                           </div>
@@ -1036,13 +1053,13 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                           const hasDelta = metric.delta !== undefined && metric.delta !== null;
                           return (
                             <div key={key} className="space-y-2">
-                              <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
-                              <div className="text-lg font-semibold text-slate-800">{format(metric.value)}</div>
-                              <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                              <p className="text-xs uppercase tracking-[0.25em] text-white/40">{label}</p>
+                              <div className="text-lg font-semibold text-white">{format(metric.value)}</div>
+                              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/70">
                                 {hasDelta
                                   ? `${metric.delta > 0 ? '▲' : metric.delta < 0 ? '▼' : '—'} ${formatPercent(
-                                      metric.deltaRatio
-                                    )}`
+                                    metric.deltaRatio
+                                  )}`
                                   : '—'}
                               </div>
                             </div>
@@ -1051,7 +1068,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                       </div>
                     </>
                   ) : (
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-white/60">
                       We couldn&apos;t find analytics for this video during the selected period.
                     </p>
                   )}

@@ -17,6 +17,7 @@ import Card from "./Card";
 
 interface ShortsGeneratorTabProps {
   selectedVideo: Video | null;
+  isDemoMode?: boolean;
 }
 
 const DOWNLOAD_STATUS_LABELS: Record<ShortDownloadStatus, string> = {
@@ -42,7 +43,7 @@ const formatSeconds = (value: number) => {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 };
 
-const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }) => {
+const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo, isDemoMode = false }) => {
   const [shorts, setShorts] = useState<ShortClip[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [publishingIndex, setPublishingIndex] = useState<number | null>(null);
@@ -354,24 +355,24 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
   };
 
   return (
-    <section>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-slate-800">Shorts Generator</h2>
+    <section className="space-y-8 text-white">
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="text-3xl font-semibold text-white drop-shadow-sm">Shorts Generator</h2>
       </div>
 
       {notification && (
         <div
-          className="mb-4 p-3 text-sm bg-blue-50 border-l-4 border-blue-400 text-blue-800 rounded-md"
+          className="mb-4 rounded-2xl border border-sky-400/30 bg-sky-500/10 p-4 text-sm text-sky-100 shadow-inner shadow-sky-500/10"
           role="alert"
         >
           {notification}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="space-y-6">
         <Card title="1. Select a Video">
           {!selectedVideo && (
-            <div className="text-sm text-slate-500">
+            <div className="text-sm text-white/60">
               Choose a video from the sidebar to start generating short-form ideas.
             </div>
           )}
@@ -382,22 +383,22 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
                   <img
                     src={videoThumbnail}
                     alt={selectedVideo.title}
-                    className="w-32 h-20 object-cover rounded-md border border-slate-200"
+                    className="h-20 w-32 rounded-xl border border-white/10 object-cover shadow-[0_12px_30px_rgba(15,23,42,0.5)]"
                   />
                 )}
                 <div>
-                  <h3 className="font-semibold text-slate-800 text-sm">{selectedVideo.title}</h3>
+                  <h3 className="text-sm font-semibold text-white">{selectedVideo.title}</h3>
                   {downloadStatus && (
-                    <p className="text-xs text-indigo-600 mt-1">{getDownloadStatusLabel(downloadStatus)}</p>
+                    <p className="mt-1 text-xs text-indigo-200">{getDownloadStatusLabel(downloadStatus)}</p>
                   )}
                   {selectedVideo.publishedAt && (
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="mt-1 text-xs text-white/60">
                       Published {new Date(selectedVideo.publishedAt).toLocaleDateString()}
                     </p>
                   )}
                   {selectedVideo.description && (
-                    <p className="text-xs text-slate-500 mt-2 line-clamp-3">
-                      {selectedVideo.description}
+                    <p className="mt-2 text-xs text-white/60">
+                      {selectedVideo.description.split('\n')[0]}
                     </p>
                   )}
                 </div>
@@ -407,14 +408,14 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
                 <button
                   onClick={handleGenerateShorts}
                   disabled={isLoading}
-                  className="px-4 py-2 rounded-md bg-indigo-600 text-white font-semibold text-sm shadow-sm hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-wait"
+                  className="rounded-full bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_18px_45px_rgba(99,102,241,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(99,102,241,0.45)] disabled:cursor-wait disabled:bg-white/10 disabled:text-white/50 disabled:shadow-none"
                 >
                   {isLoading ? "Analyzing…" : "Generate Clip Ideas"}
                 </button>
                 <button
                   onClick={handleClear}
                   disabled={isLoading}
-                  className="px-4 py-2 rounded-md border border-slate-300 bg-white text-slate-700 font-semibold text-sm hover:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm font-semibold text-white/80 transition hover:border-white/30 hover:bg-white/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Clear
                 </button>
@@ -425,19 +426,19 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
 
         <Card title="2. Review & Export Clips">
           {!selectedVideo && (
-            <div className="text-sm text-slate-500 h-full flex items-center justify-center text-center px-6">
+            <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/60">
               Select a video to see suggested clips and timestamps here.
             </div>
           )}
           {selectedVideo && (
             <>
               {isLoading && (
-                <div className="text-sm text-slate-500 h-full flex items-center justify-center">
+                <div className="flex h-full items-center justify-center text-sm text-white/60">
                   Finding the best moments…
                 </div>
               )}
               {!isLoading && shorts.length === 0 && (
-                <div className="text-sm text-slate-500 h-full flex items-center justify-center text-center px-6">
+                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/60">
                   Your suggested clips will appear here once generated.
                 </div>
               )}
@@ -447,30 +448,30 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
                   return (
                     <li
                       key={`${clip.startTime}-${clip.endTime}-${index}`}
-                      className="p-3 bg-white rounded-md shadow-sm"
+                      className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/10"
                     >
-                      <div className="flex flex-col gap-2">
+                      <div className="flex flex-col gap-3">
                         <div className="flex items-center justify-between">
-                          <div className="text-xs font-semibold text-indigo-600">
+                          <div className="text-xs font-semibold uppercase tracking-wide text-indigo-200">
                             {formatSeconds(clip.startTime)} → {formatSeconds(clip.endTime)} ({formatSeconds(duration)})
                           </div>
                           <button
                             onClick={() => handlePublishShort(index)}
                             disabled={publishingIndex === index}
-                            className="text-xs py-1.5 px-3 border border-slate-300 rounded-md font-semibold text-slate-700 bg-white hover:bg-slate-100 disabled:opacity-50 disabled:cursor-wait"
+                            className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:border-white/30 hover:bg-white/15 hover:text-white disabled:cursor-wait disabled:opacity-50"
                           >
                             {publishingIndex === index ? "Publishing…" : "Publish Short"}
                           </button>
                         </div>
                         <div>
-                          <h4 className="font-semibold text-slate-800 text-sm">{clip.title}</h4>
-                          <p className="text-xs text-slate-500 mt-1">{clip.reason}</p>
-                          <p className="text-xs text-slate-400 mt-1 italic">Hook: {clip.hook}</p>
+                          <h4 className="text-sm font-semibold text-white">{clip.title}</h4>
+                          <p className="mt-1 text-xs text-white/70">{clip.reason}</p>
+                          <p className="mt-1 text-xs italic text-white/50">Hook: {clip.hook}</p>
                           {publishResults[index] && (
-                            <div className="mt-2 text-xs text-emerald-600 space-y-1">
-                              <div>Status: {publishResults[index].status}</div>
+                            <div className="mt-3 space-y-1 text-xs text-emerald-200">
+                              <div className="font-semibold uppercase tracking-wide text-white/60">Status: <span className="text-emerald-200 normal-case tracking-normal font-normal">{publishResults[index].status}</span></div>
                               {publishResults[index].message && (
-                                <div className="text-emerald-700">{publishResults[index].message}</div>
+                                <div className="text-emerald-200">{publishResults[index].message}</div>
                               )}
                               {publishResults[index].shareUrl && (
                                 <div>
@@ -478,7 +479,7 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
                                     href={publishResults[index].shareUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-emerald-700 underline"
+                                    className="text-emerald-200 underline hover:text-emerald-100"
                                   >
                                     Preview clip on YouTube
                                   </a>

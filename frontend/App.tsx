@@ -4,6 +4,7 @@ import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
 import { API_BASE_URL } from './constants';
 import { AuthenticatedUser } from './types';
+import { startDemoSession } from './services/demoService';
 
 type Page = 'landing' | 'login' | 'dashboard';
 
@@ -12,6 +13,8 @@ const App: React.FC = () => {
   const [authError, setAuthError] = useState<string | null>(null);
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [demoChannel, setDemoChannel] = useState<unknown>(null);
 
   const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
 
@@ -26,20 +29,28 @@ const App: React.FC = () => {
         throw new Error(`Session check failed with status ${response.status}`);
       }
 
-      const data: { authenticated: boolean; user?: AuthenticatedUser } = await response.json();
+      const data: { authenticated: boolean; user?: AuthenticatedUser; demoMode?: boolean } = await response.json();
 
       if (data.authenticated && data.user) {
         setUser(data.user);
         setAuthError(null);
+        setIsDemoMode(Boolean(data.demoMode));
+        if (!data.demoMode) {
+          setDemoChannel(null);
+        }
         setCurrentPage('dashboard');
         return true;
       }
 
       setUser(null);
+      setIsDemoMode(false);
+      setDemoChannel(null);
       return false;
     } catch (error) {
       console.warn('Unable to verify session', error);
       setUser(null);
+      setIsDemoMode(false);
+      setDemoChannel(null);
       return false;
     }
   }, [apiBaseUrl]);
@@ -54,10 +65,32 @@ const App: React.FC = () => {
     setCurrentPage('login');
   };
 
-  const navigateToDashboard = () => {
-    setAuthError(null);
-    setCurrentPage('dashboard');
-  };
+  const handleStartDemo = useCallback(async () => {
+    try {
+      setAuthError(null);
+      const payload = await startDemoSession();
+      if (payload?.user) {
+        setUser(payload.user as AuthenticatedUser);
+      }
+      if (payload?.channel) {
+        setDemoChannel(payload.channel);
+      } else {
+        setDemoChannel(null);
+      }
+      setIsDemoMode(true);
+      setCurrentPage('dashboard');
+    } catch (error) {
+      console.error('Failed to start demo session', error);
+      setAuthError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to start demo mode right now. Please try again.'
+      );
+      setIsDemoMode(false);
+      setDemoChannel(null);
+      setCurrentPage('login');
+    }
+  }, []);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -76,6 +109,8 @@ const App: React.FC = () => {
       console.warn('Failed to log out cleanly', error);
     } finally {
       setUser(null);
+      setIsDemoMode(false);
+      setDemoChannel(null);
       setCurrentPage('login');
     }
   }, [apiBaseUrl]);
@@ -111,8 +146,19 @@ const App: React.FC = () => {
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100">
-        <div className="text-slate-500 text-sm">Loading...</div>
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 text-slate-100">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-32 left-1/3 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 h-80 w-80 rounded-full bg-fuchsia-500/20 blur-3xl" />
+        </div>
+        <div className="relative flex flex-col items-center gap-4 rounded-3xl border border-white/10 bg-white/5 px-8 py-6 shadow-[0_25px_70px_rgba(15,23,42,0.55)] backdrop-blur-xl">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/10">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-transparent" />
+          </div>
+          <p className="text-sm font-medium uppercase tracking-[0.3em] text-white/60">
+            Syncing workspace
+          </p>
+        </div>
       </div>
     );
   }
@@ -122,7 +168,8 @@ const App: React.FC = () => {
       return (
         <LandingPage
           onLogin={navigateToLogin}
-          onGoToDashboard={navigateToDashboard}
+          onStartDemo={handleStartDemo}
+          authError={authError ?? undefined}
         />
       );
     case 'login':
@@ -133,12 +180,21 @@ const App: React.FC = () => {
         />
       );
     case 'dashboard':
-      return <Dashboard user={user} onLogout={handleLogout} />;
+      return (
+        <Dashboard
+          user={user}
+          onLogout={handleLogout}
+          isDemoMode={isDemoMode}
+          demoChannel={demoChannel}
+          onUpdateDemoChannel={setDemoChannel}
+        />
+      );
     default:
       return (
         <LandingPage
           onLogin={navigateToLogin}
-          onGoToDashboard={navigateToDashboard}
+          onStartDemo={handleStartDemo}
+          authError={authError ?? undefined}
         />
       );
   }

@@ -14,39 +14,90 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToHome, errorMessage })
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <button 
-            onClick={onNavigateToHome} 
-            className="w-full text-center group focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 rounded-lg"
+    <div className="relative min-h-screen overflow-hidden bg-slate-950">
+      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950" />
+      <div className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-indigo-500/20 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 right-0 h-[420px] w-[420px] rounded-full bg-purple-500/20 blur-3xl" />
+
+      <div className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-12 px-6 py-12 lg:flex-row lg:items-center lg:justify-between lg:px-12">
+        <section className="max-w-xl space-y-8 text-slate-50">
+          <button
+            onClick={onNavigateToHome}
+            className="group inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/70 transition hover:border-white/20 hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             aria-label="Return to homepage"
           >
-            <div className="flex flex-col items-center mb-6">
-                <div className="p-2 bg-indigo-50 rounded-full mb-3 text-indigo-600 transition-colors group-hover:bg-indigo-100">
-                  <RobotIcon />
-                </div>
-                <h2 className="text-2xl font-bold text-slate-800 transition-colors group-hover:text-indigo-600">Welcome Back</h2>
-                <p className="text-slate-500 text-sm mt-1">Sign in to access your YouTube AI Assistant</p>
-            </div>
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/30 text-indigo-200 transition group-hover:bg-indigo-500/50 group-hover:text-white">
+              <RobotIcon />
+            </span>
+            Back to creator suite
           </button>
-          <div className="space-y-4">
+
+          <div className="space-y-6">
+            <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
+              Your AI teammate for building a thriving YouTube channel.
+            </h1>
+            <p className="text-base text-slate-300 sm:text-lg">
+              Get data-driven ideas, tailored video scripts, and polished shorts ready to post. Let the assistant handle repetitive work so you can focus on creating.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-sm font-semibold text-indigo-200">Smart insights</p>
+              <p className="mt-1 text-sm text-slate-200">See what your audience wants next using AI-powered topic discovery.</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-sm font-semibold text-indigo-200">Faster production</p>
+              <p className="mt-1 text-sm text-slate-200">Generate scripts, thumbnails, and shorts in minutes—not hours.</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-sm font-semibold text-indigo-200">Real-time analytics</p>
+              <p className="mt-1 text-sm text-slate-200">Track performance trends and stay ahead of algorithm changes.</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-sm font-semibold text-indigo-200">Private & secure</p>
+              <p className="mt-1 text-sm text-slate-200">OAuth2 with Google keeps your channel data protected at all times.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="w-full max-w-md">
+          <div className="rounded-2xl border border-white/10 bg-slate-950/75 p-8 shadow-2xl backdrop-blur-lg">
+            <div className="mb-6 space-y-2 text-center">
+              <p className="text-sm font-semibold uppercase tracking-wide text-indigo-200">Log in</p>
+              <h2 className="text-2xl font-bold text-white">Welcome back, creator</h2>
+              <p className="text-sm text-slate-300">
+                Connect your Google account to unlock the full suite of AI-driven tools.
+              </p>
+            </div>
+
             {errorMessage && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {errorMessage}
               </div>
             )}
-            <button 
+
+            <button
               onClick={handleGoogleLogin}
-              className="w-full py-3 px-4 rounded-md bg-indigo-600 text-white font-semibold text-sm shadow-sm hover:bg-indigo-700 transition-colors"
+              className="flex w-full items-center justify-center gap-3 rounded-lg bg-indigo-600 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/30 transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
-              Continue with Google
+              <span className="text-base">Continue with Google</span>
             </button>
-            <p className="text-xs text-slate-500 text-center">
-              You will be redirected to Google to authorize access to your YouTube account.
-            </p>
+
+            <div className="mt-6 space-y-4 text-xs text-slate-400">
+              <p className="text-center">
+                You will be redirected to Google to authorize access to your YouTube account.
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                <p className="font-medium text-slate-200">OAuth2 secured. We never store your password.</p>
+              </div>
+              <p className="text-center">
+                Need an account? Join the waitlist to get early access to new features.
+              </p>
+            </div>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

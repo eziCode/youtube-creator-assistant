@@ -71,10 +71,6 @@ export async function downloadYouTubeVideo(
 			}
 		}
 
-		child.stdout?.on("data", (data) => {
-			logger?.debug?.("[downloadYouTubeVideo] yt-dlp stdout", data.toString());
-		});
-
 		child.stdout?.on("error", (error) => {
 			logger?.warn?.("[downloadYouTubeVideo] stdout stream error", {
 				videoId,
@@ -82,10 +78,6 @@ export async function downloadYouTubeVideo(
 			});
 			discardUploadPromiseRejection();
 			void handleFailure(error);
-		});
-
-		child.stderr?.on("data", (data) => {
-			logger?.debug?.("[downloadYouTubeVideo] yt-dlp stderr", data.toString());
 		});
 
 		const uploadPromise = uploader.promise;

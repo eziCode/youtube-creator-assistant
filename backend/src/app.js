@@ -16,7 +16,9 @@ import {
 } from "../functions/dashboard/get_channel_analytics.js";
 import { createCommentResponses } from "../functions/comments/create_comment_responses.js";
 import { respondToComments } from "../functions/comments/respond_to_comments.js";
+import { deleteComment } from "../functions/comments/delete_comment.js";
 import { generateShortsIdeas } from "../functions/shorts/create_shorts.js";
+import { generateCommentReply } from "../functions/comments/generate_comment_reply.js";
 import {
 	startDownload as startShortDownload,
 	cancelDownload as cancelShortDownload,
@@ -29,6 +31,7 @@ import {
 	getJob as getShortJob,
 } from "../functions/shorts/shorts_job_manager.js";
 import authRouter from "./routes/auth.js";
+import demoRouter from "./routes/demo.js";
 
 dotenv.config();
 
@@ -130,6 +133,7 @@ const registerRoutes = () => {
 	app.use("/auth", authRouter);
 	app.use("/upload-image", uploadRouter);
 	app.use("/generate", generateRouter);
+	app.use("/demo", demoRouter);
 
 	app.post("/shorts/download", async (req, res) => {
 		if (!req.session?.tokens?.accessToken) {
@@ -339,6 +343,61 @@ const registerRoutes = () => {
 		} catch (err) {
 			console.error(err);
 			return res.status(500).json({ error: err.message || "failed to respond to comments" });
+		}
+	});
+
+	app.post("/comments/generate-reply", async (req, res) => {
+		if (!req.session?.tokens?.accessToken) {
+			return res.status(401).json({ error: "authentication required" });
+		}
+
+		const { commentText, tone, viewerName, videoTitle } = req.body ?? {};
+
+		if (!commentText || typeof commentText !== "string") {
+			return res.status(400).json({ error: "commentText is required" });
+		}
+
+		try {
+			const reply = await generateCommentReply({ commentText, tone, viewerName, videoTitle });
+			return res.json({ reply });
+		} catch (err) {
+			console.error("[comments] failed to generate reply", err);
+			return res.status(500).json({ error: err.message || "failed to generate reply" });
+		}
+	});
+
+	app.delete("/comments/:commentId", async (req, res) => {
+		if (!req.session?.tokens?.accessToken) {
+			return res.status(401).json({ error: "authentication required" });
+		}
+
+		const { commentId } = req.params ?? {};
+
+		if (!commentId || typeof commentId !== "string") {
+			return res.status(400).json({ error: "commentId path parameter is required" });
+		}
+
+		try {
+			const result = await deleteComment(commentId, req.session.tokens);
+
+			if (req.session && result.updatedTokens) {
+				req.session.tokens = {
+					...req.session.tokens,
+					...result.updatedTokens,
+				};
+
+				await new Promise((resolve, reject) => {
+					req.session.save((err) => {
+						if (err) reject(err);
+						else resolve();
+					});
+				});
+			}
+
+			return res.json({ success: true });
+		} catch (err) {
+			console.error("[comments] failed to delete comment", err);
+			return res.status(500).json({ error: err.message || "failed to delete comment" });
 		}
 	});
 

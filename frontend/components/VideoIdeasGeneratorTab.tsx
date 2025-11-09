@@ -31,7 +31,7 @@ const SAMPLE_IDEA_BLUEPRINTS: SampleIdeaBlueprint[] = [
     ].join("\n"),
     thumbnailPrompt:
       "Creator holding a futuristic camera rig under neon magenta lights, high-contrast tech aesthetic, crisp typography that reads 'AI RIG TEST'.",
-    thumbnailPath: null,
+    thumbnailPath: "/demo-thumbnails/thumbnail1.jpg",
   },
   {
     title: "Vision Pro vs Quest: creator workflow showdown",
@@ -44,7 +44,7 @@ const SAMPLE_IDEA_BLUEPRINTS: SampleIdeaBlueprint[] = [
     ].join("\n"),
     thumbnailPrompt:
       "Split-screen thumbnail with Vision Pro and Quest headsets, bold lightning bolt divider, vibrant cyberpunk studio backdrop.",
-    thumbnailPath: null,
+    thumbnailPath: "/demo-thumbnails/thumbnail2.jpg",
   },
   {
     title: "Desk makeover 2025: build the dream creator workspace",
@@ -57,7 +57,7 @@ const SAMPLE_IDEA_BLUEPRINTS: SampleIdeaBlueprint[] = [
     ].join("\n"),
     thumbnailPrompt:
       "Ultra-wide desk shot with RGB lighting, dual monitors, overhead light bars, clean minimalist tech aesthetic, centered hero product.",
-    thumbnailPath: null,
+    thumbnailPath: "/demo-thumbnails/thumbnail3.jpg",
   },
   {
     title: "Top 5 creator-friendly Android phones right now",
@@ -70,7 +70,7 @@ const SAMPLE_IDEA_BLUEPRINTS: SampleIdeaBlueprint[] = [
     ].join("\n"),
     thumbnailPrompt:
       "Fan-out of five modern Android phones on a reflective surface, neon accent lighting, bold text 'CREATOR PHONE RANKED'.",
-    thumbnailPath: null,
+    thumbnailPath: "/demo-thumbnails/thumbnail4.jpg",
   },
 ];
 
@@ -104,7 +104,7 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
 
     try {
       if (useSample) {
-        await delay(320);
+        await delay(2500);
         const sampleIdeas = buildSampleIdeas();
         setVideoIdeas(sampleIdeas);
         return;
@@ -307,7 +307,7 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
 
             <button
               onClick={handleGenerate}
-              disabled={isLoading || !userChannelId}
+              disabled={isLoading || (!userChannelId && !useSample)}
               className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_24px_45px_rgba(99,102,241,0.35)] transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400 focus:ring-offset-slate-950 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none"
               type="button"
             >

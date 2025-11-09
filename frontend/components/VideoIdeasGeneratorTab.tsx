@@ -415,6 +415,12 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
             <p className="text-xs text-slate-300">
               Thumbnails and scripts appear here once generated.
             </p>
+            {isLoading && (
+              <div className="mt-3 inline-flex items-center gap-2 text-xs font-medium text-indigo-200">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-300/60 border-t-transparent"></span>
+                <span>Curating your next hits…</span>
+              </div>
+            )}
           </header>
 
           {/* Fixed scrollable region */}

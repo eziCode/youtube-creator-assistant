@@ -55,6 +55,7 @@ export interface Comment {
   publishedAt?: string | null;
   replyCount?: number | null;
   replies?: CommentReply[];
+  autoReplyId?: string | null;
   sentiment?: Sentiment;
   risk?: RiskLevel;
   suggestedReply?: string;

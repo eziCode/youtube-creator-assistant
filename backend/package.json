@@ -17,6 +17,7 @@
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@huggingface/inference": "^4.13.2",
     "axios": "^1.13.2",
+    "form-data": "^4.0.0",
     "connect-mongo": "^5.1.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

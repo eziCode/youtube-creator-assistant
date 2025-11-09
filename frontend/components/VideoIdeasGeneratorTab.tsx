@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { API_BASE_URL } from "../constants";
 
 interface VideoIdeasGeneratorTabProps {
@@ -11,7 +11,8 @@ interface GeneratedVideo {
   title: string;
   script: string;
   thumbnailPrompt: string;
-  thumbnailPath: string;
+  thumbnailPath: string | null;
+  thumbnailId?: string;
 }
 
 const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userChannelId, useSample = false }) => {
@@ -20,6 +21,9 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
   const [shortsIdeas, setShortsIdeas] = useState<GeneratedVideo[]>([]);
   const [videoIdeas, setVideoIdeas] = useState<GeneratedVideo[]>([]);
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
+  const [uploadedImageDataUrl, setUploadedImageDataUrl] = useState<string | null>(null);
+  const [uploadedImageFile, setUploadedImageFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleGenerate = async () => {
     if (!userChannelId) {
@@ -35,11 +39,33 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
     setExpandedVideoId(null);
 
     try {
+      const payload: any = { channelId: userChannelId, useSample };
+
+      // If user selected a file, upload it first via multipart/form-data
+      if (uploadedImageFile) {
+        const form = new FormData();
+        form.append('image', uploadedImageFile);
+
+        const upResp = await fetch(`${API_BASE_URL}/upload-image`, {
+          method: 'POST',
+          credentials: 'include',
+          body: form,
+        });
+
+        if (!upResp.ok) {
+          const err = await upResp.json().catch(() => ({}));
+          throw new Error(err?.error || 'Image upload failed');
+        }
+
+        const upData = await upResp.json();
+        payload.uploadedImagePath = upData.uploadedImagePath;
+      }
+
       const response = await fetch(`${API_BASE_URL}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // send cookies (session) to backend
-        body: JSON.stringify({ channelId: userChannelId, useSample }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -81,35 +107,98 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
     }
   };
 
-  const renderVideoCard = (video: GeneratedVideo) => {
-    const isExpanded = expandedVideoId === video.id;
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploadedImageFile(file);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setUploadedImageDataUrl(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Separate component for video card to use hooks
+  const VideoCard: React.FC<{ video: GeneratedVideo; isExpanded: boolean; onToggle: () => void }> = ({ video, isExpanded, onToggle }) => {
+    const [thumbnailReady, setThumbnailReady] = useState(false);
+    const [thumbnailSrc, setThumbnailSrc] = useState<string | null>(video.thumbnailPath);
+
+    // Poll for thumbnail if we have a thumbnailId
+    useEffect(() => {
+      if (video.thumbnailId && !thumbnailReady) {
+        const pollThumbnail = async () => {
+          try {
+            const response = await fetch(`${API_BASE_URL}/generate/thumbnail/${video.thumbnailId}`, {
+              credentials: 'include',
+            });
+            const data = await response.json();
+            if (data.ready && data.dataUri) {
+              setThumbnailSrc(data.dataUri);
+              setThumbnailReady(true);
+            } else if (!data.ready) {
+              // Poll again after 1 second
+              setTimeout(pollThumbnail, 1000);
+            }
+          } catch (err) {
+            console.error('Error polling thumbnail:', err);
+            // Retry after 2 seconds on error
+            setTimeout(pollThumbnail, 2000);
+          }
+        };
+        pollThumbnail();
+      }
+    }, [video.thumbnailId, thumbnailReady]);
 
     return (
-      <div
-        key={video.id}
-        className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-[0_18px_45px_rgba(15,23,42,0.45)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/10"
-      >
-        <div
-          className="flex cursor-pointer items-center transition-colors hover:bg-white/10"
-          onClick={() => setExpandedVideoId(isExpanded ? null : video.id)}
+      <div className="border rounded-lg overflow-hidden shadow-sm mb-4">
+        <button
+          className="w-full text-left cursor-pointer"
+          onClick={(e) => {
+            e.preventDefault();
+            onToggle();
+          }}
+          type="button"
         >
-          {video.thumbnailPath && (
-            <img
-              src={video.thumbnailPath}
-              alt={video.title}
-              className="h-24 w-24 rounded-l-2xl object-cover"
-            />
-          )}
-          <div className="p-2 flex-1">
-            <h4 className="text-sm font-semibold text-white">{video.title}</h4>
+          <div className="w-full flex justify-center bg-gray-100 py-2">
+            <div className="w-4/5 bg-gray-200 flex items-center justify-center relative" style={{ minHeight: '192px' }}>
+              {thumbnailSrc ? (
+                <img
+                  src={thumbnailSrc}
+                  alt={video.title}
+                  className="w-full h-auto"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center w-full" style={{ minHeight: '192px' }}>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-2"></div>
+                  <p className="text-gray-500 text-sm">Generating thumbnail...</p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+          <div className="p-3">
+            <h4 className="font-semibold text-base line-clamp-2">{video.title}</h4>
+          </div>
+        </button>
         {isExpanded && (
-          <div className="whitespace-pre-line bg-white/5 p-4 text-xs text-white/70">
+          <div className="p-3 bg-gray-50 text-sm whitespace-pre-line">
             {video.script || "No script available."}
           </div>
         )}
       </div>
+    );
+  };
+
+  const renderVideoCard = (video: GeneratedVideo) => {
+    const isExpanded = expandedVideoId === video.id;
+    return (
+      <VideoCard
+        key={video.id}
+        video={video}
+        isExpanded={isExpanded}
+        onToggle={() => setExpandedVideoId(isExpanded ? null : video.id)}
+      />
     );
   };
 
@@ -126,6 +215,46 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
       </button>
 
       {error && <p className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-200 shadow-inner shadow-rose-500/10">{error}</p>}
+
+      <div className="flex flex-col gap-2">
+        <label className="text-sm font-medium text-gray-700">
+          Upload Person Image (Optional)
+        </label>
+        <p className="text-xs text-gray-500">
+          Please upload a transparent background PNG image of the person to include in thumbnails.
+        </p>
+        <div className="relative">
+          <input 
+            ref={fileInputRef} 
+            type="file" 
+            accept="image/png" 
+            onChange={handleImageChange} 
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+          >
+            Choose File
+          </button>
+          {uploadedImageFile && (
+            <span className="ml-3 text-sm text-gray-600">
+              {uploadedImageFile.name}
+            </span>
+          )}
+        </div>
+        {uploadedImageDataUrl && (
+          <div className="mt-2">
+            <p className="text-xs text-green-600 mb-1">✓ Image uploaded</p>
+            <img 
+              src={uploadedImageDataUrl} 
+              alt="Uploaded" 
+              className="max-w-xs max-h-32 border rounded"
+            />
+          </div>
+        )}
+      </div>
 
       {/* Shorts Ideas Section */}
       <section className="space-y-3">

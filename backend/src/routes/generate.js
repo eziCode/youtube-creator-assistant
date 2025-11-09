@@ -2,7 +2,7 @@ import express from "express";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { getOAuth2Client, getChannelVideos, getTrendingVideos } from "../../src/models/youtube.js";
+import { getOAuth2Client, getChannelVideos } from "../../src/models/youtube.js";
 import { generateVideoContent } from "../../src/models/llm.js";
 import { generateThumbnail } from "../../src/models/thumbnail.js";
 import crypto from "crypto";
@@ -41,7 +41,7 @@ router.post("/", async (req, res) => {
         const useSample = req.body?.useSample || req.query?.useSample === '1' || process.env.USE_SAMPLE_DATA === 'true';
 
         if (useSample) {
-            console.log("/generate: using sample channelVideos/trendingVideos (skip YouTube API)");
+            console.log("/generate: using sample channelVideos data (skip YouTube API)");
             // Provide realistic channel video items that mirror YouTube API snippet/statistics shape
             channelVideos = [
                 {
@@ -92,52 +92,6 @@ router.post("/", async (req, res) => {
             }
         }
 
-        let trendingVideos = [];
-        if (useSample) {
-            console.log("/generate: using sample trendingVideos (skip YouTube API)");
-            // Provide realistic-looking trending items similar to YouTube's trending snippet/statistics shape
-            trendingVideos = [
-                {
-                    id: { kind: "youtube#video", videoId: "trending1" },
-                    snippet: {
-                        title: "10 AI Tools Every Creator Should Know",
-                        channelTitle: "TechGuru",
-                        publishedAt: "2025-10-20T12:34:56Z",
-                        description: "A roundup of AI tools that speed up editing, scripting, and thumbnails."
-                    },
-                    statistics: { viewCount: "1534000" }
-                },
-                {
-                    id: { kind: "youtube#video", videoId: "trending2" },
-                    snippet: {
-                        title: "I let AI edit my video — here's what happened",
-                        channelTitle: "CreatorLab",
-                        publishedAt: "2025-11-01T08:00:00Z",
-                        description: "Experimenting with AI video editors and reviewing the results."
-                    },
-                    statistics: { viewCount: "2345000" }
-                },
-                {
-                    id: { kind: "youtube#video", videoId: "trending3" },
-                    snippet: {
-                        title: "Viral Short: 5 Tips to Grow on YouTube in 2025",
-                        channelTitle: "GrowthHacks",
-                        publishedAt: "2025-11-05T16:20:00Z",
-                        description: "Quick, actionable tips for creators to grow views and subscribers."
-                    },
-                    statistics: { viewCount: "987000" }
-                }
-            ];
-        } else {
-            try {
-                trendingVideos = await getTrendingVideos(oauth2Client);
-                console.log(`Fetched ${trendingVideos.length} trending videos`);
-            } catch (err) {
-                console.error("Error calling getTrendingVideos:", err?.message || err, err?.stack || "");
-                return res.status(500).json({ error: "Failed to fetch trending videos", details: err?.message || String(err) });
-            }
-        }
-
         // Accept uploadedImagePath returned from the multipart upload endpoint.
         // The frontend should first POST the file to /upload-image and then
         // provide the returned path here as `uploadedImagePath`.
@@ -152,23 +106,36 @@ router.post("/", async (req, res) => {
             }
         }
 
-        // Normalize channel/trending shapes to a simple {id, title} array so the LLM prompt
-        // receives consistent data (our sample data uses snippet.title while live API
-        // may provide a different top-level shape).
+        // Normalize channel video shape to ensure the LLM receives consistent data.
         const normalizedChannelVideos = channelVideos.map(cv => ({
             id: (cv?.id && (cv.id.videoId || cv.id)) || cv?.id || cv?.videoId || null,
-            title: cv?.snippet?.title || cv?.title || ""
-        }));
-
-        const normalizedTrendingVideos = trendingVideos.map(tv => ({
-            id: (tv?.id && (tv.id.videoId || tv.id)) || tv?.id || tv?.videoId || null,
-            title: tv?.snippet?.title || tv?.title || ""
+            title: cv?.snippet?.title || cv?.title || "",
+            viewCount: Number(
+                cv?.viewCount ??
+                cv?.statistics?.viewCount ??
+                cv?.metrics?.viewCount ??
+                0
+            ),
+            likeCount: Number(
+                cv?.likeCount ??
+                cv?.statistics?.likeCount ??
+                cv?.metrics?.likeCount ??
+                0
+            ),
+            commentCount: Number(
+                cv?.commentCount ??
+                cv?.statistics?.commentCount ??
+                cv?.metrics?.commentCount ??
+                0
+            ),
+            publishedAt: cv?.snippet?.publishedAt || cv?.publishedAt || null,
+            description: cv?.snippet?.description || cv?.description || ""
         }));
 
         let llmOutput = "";
         try {
-            console.log("Calling LLM with", { channelCount: normalizedChannelVideos.length, trendingCount: normalizedTrendingVideos.length });
-            llmOutput = await generateVideoContent(normalizedChannelVideos, normalizedTrendingVideos);
+            console.log("Calling LLM with", { channelCount: normalizedChannelVideos.length });
+            llmOutput = await generateVideoContent(normalizedChannelVideos);
             console.log("LLM output length:", (llmOutput && typeof llmOutput === 'string') ? llmOutput.length : (llmOutput?.videos?.length || 0));
         } catch (err) {
             console.error("Error calling generateVideoContent:", err?.message || err, err?.stack || "");

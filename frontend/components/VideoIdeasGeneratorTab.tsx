@@ -20,10 +20,13 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
   const [error, setError] = useState<string | null>(null);
   const [shortsIdeas, setShortsIdeas] = useState<GeneratedVideo[]>([]);
   const [videoIdeas, setVideoIdeas] = useState<GeneratedVideo[]>([]);
-  const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
   const [uploadedImageDataUrl, setUploadedImageDataUrl] = useState<string | null>(null);
   const [uploadedImageFile, setUploadedImageFile] = useState<File | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const dropZoneStateClasses = isDragActive
+    ? "border-indigo-300/70 bg-indigo-500/15 shadow-[0_0_0_1px_rgba(129,140,248,0.45)]"
+    : "border-white/10 bg-slate-900/50";
 
   const handleGenerate = async () => {
     if (!userChannelId) {
@@ -36,7 +39,6 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
     setError(null);
     setShortsIdeas([]);
     setVideoIdeas([]);
-    setExpandedVideoId(null);
 
     try {
       const payload: any = { channelId: userChannelId, useSample };
@@ -94,7 +96,6 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
 
         setShortsIdeas([]);
         setVideoIdeas([generated]);
-        setExpandedVideoId(generated.id);
       } else {
         setShortsIdeas([]);
         setVideoIdeas([]);
@@ -107,10 +108,10 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const processSelectedFile = (file: File | null) => {
     if (!file) return;
-    
+    setUploadedImageFile(file);
+    setUploadedImageDataUrl(null);
     setUploadedImageFile(file);
     const reader = new FileReader();
     reader.onload = () => {
@@ -120,10 +121,25 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
     reader.readAsDataURL(file);
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    processSelectedFile(file);
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragActive(false);
+    if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+      processSelectedFile(event.dataTransfer.files[0]);
+      event.dataTransfer.clearData();
+    }
+  };
+
   // Separate component for video card to use hooks
-  const VideoCard: React.FC<{ video: GeneratedVideo; isExpanded: boolean; onToggle: () => void }> = ({ video, isExpanded, onToggle }) => {
+  const VideoCard: React.FC<{ video: GeneratedVideo }> = ({ video }) => {
     const [thumbnailReady, setThumbnailReady] = useState(false);
     const [thumbnailSrc, setThumbnailSrc] = useState<string | null>(video.thumbnailPath);
+    const [showFullScript, setShowFullScript] = useState(false);
 
     // Poll for thumbnail if we have a thumbnailId
     useEffect(() => {
@@ -151,126 +167,221 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
       }
     }, [video.thumbnailId, thumbnailReady]);
 
+    const scriptText = video.script || "";
+    const previewLines = scriptText.split("\n");
+    const previewText = showFullScript ? scriptText : previewLines.slice(0, 4).join("\n");
+    const shouldShowToggle = previewLines.length > 4;
+
     return (
-      <div className="border rounded-lg overflow-hidden shadow-sm mb-4">
-        <button
-          className="w-full text-left cursor-pointer"
-          onClick={(e) => {
-            e.preventDefault();
-            onToggle();
-          }}
-          type="button"
-        >
-          <div className="w-full flex justify-center bg-gray-100 py-2">
-            <div className="w-4/5 bg-gray-200 flex items-center justify-center relative" style={{ minHeight: '192px' }}>
-              {thumbnailSrc ? (
-                <img
-                  src={thumbnailSrc}
-                  alt={video.title}
-                  className="w-full h-auto"
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center w-full" style={{ minHeight: '192px' }}>
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-2"></div>
-                  <p className="text-gray-500 text-sm">Generating thumbnail...</p>
-                </div>
-              )}
+      <article className="rounded-2xl border border-white/10 bg-slate-900/70 shadow-[0_16px_40px_rgba(15,23,42,0.45)] transition hover:border-indigo-400/30 hover:shadow-[0_22px_55px_rgba(79,70,229,0.25)]">
+        <div className="flex flex-col gap-5 p-4 md:flex-row md:items-center">
+          <div className="flex w-full justify-center md:w-auto">
+            <div className="relative max-w-full overflow-hidden rounded-xl border border-white/10 bg-slate-950/60">
+              <div className="flex items-center justify-center p-3">
+                {thumbnailSrc ? (
+                  <img
+                    src={thumbnailSrc}
+                    alt={video.title}
+                    className="max-h-56 w-auto max-w-full object-contain"
+                  />
+                ) : (
+                  <div className="flex h-48 w-64 flex-col items-center justify-center gap-3 text-slate-400">
+                    <div className="h-11 w-11 animate-spin rounded-full border-2 border-white/20 border-t-white"></div>
+                    <p className="text-xs uppercase tracking-wide text-slate-400">Generating thumbnail…</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-          <div className="p-3">
-            <h4 className="font-semibold text-base line-clamp-2">{video.title}</h4>
+
+          <div className="flex flex-1 flex-col gap-3">
+            <header className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-indigo-200/80">
+                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/15 px-2 py-1 text-[11px] font-semibold text-indigo-200">
+                  Video Idea
+                </span>
+              </div>
+              <h4 className="text-lg font-semibold text-white">{video.title}</h4>
+            </header>
+
+            <div className="rounded-2xl border border-white/5 bg-slate-950/60 p-4 text-sm text-slate-100 shadow-inner shadow-slate-950/40 whitespace-pre-line">
+              {previewText || "No script available."}
+            </div>
+            {shouldShowToggle && (
+              <button
+                className="self-start text-xs font-medium text-indigo-200 underline-offset-4 transition hover:text-indigo-100 hover:underline"
+                onClick={(event) => {
+                  event.preventDefault();
+                  setShowFullScript((prev) => !prev);
+                }}
+                type="button"
+              >
+                {showFullScript ? "Show less" : "View more"}
+              </button>
+            )}
           </div>
-        </button>
-        {isExpanded && (
-          <div className="p-3 bg-gray-50 text-sm whitespace-pre-line">
-            {video.script || "No script available."}
-          </div>
-        )}
-      </div>
+        </div>
+      </article>
     );
   };
 
-  const renderVideoCard = (video: GeneratedVideo) => {
-    const isExpanded = expandedVideoId === video.id;
-    return (
-      <VideoCard
-        key={video.id}
-        video={video}
-        isExpanded={isExpanded}
-        onToggle={() => setExpandedVideoId(isExpanded ? null : video.id)}
-      />
-    );
-  };
+  const renderVideoCard = (video: GeneratedVideo) => <VideoCard key={video.id} video={video} />;
 
   return (
-    <div className="flex max-h-[calc(100vh-150px)] flex-col gap-8 overflow-y-auto text-white">
-      <h2 className="text-3xl font-semibold text-white drop-shadow-sm">Video Ideas Generator</h2>
+    <div className="flex max-h-[calc(100vh-140px)] flex-col gap-6 overflow-y-auto pr-1 text-white">
+      <section className="flex flex-col flex-shrink-0 rounded-3xl border border-white/5 bg-slate-950/60 backdrop-blur-md shadow-[0_24px_80px_rgba(15,23,42,0.55)]">
+        <div className="flex flex-1 flex-col gap-6 p-6">
+            <header className="space-y-2">
+              <p className="text-sm font-medium uppercase tracking-wide text-indigo-200/80">Ideation Toolkit</p>
+              <h2 className="text-3xl font-semibold text-white">Video Ideas Generator</h2>
+              <p className="text-sm text-slate-300">
+                Generate new video angles inspired by your channel&apos;s best performers. Upload an optional face or product photo to influence thumbnails.
+              </p>
+            </header>
 
-      <button
-        onClick={handleGenerate}
-        disabled={isLoading || !userChannelId}
-        className="w-fit rounded-full bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_18px_45px_rgba(99,102,241,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(99,102,241,0.45)] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/50 disabled:shadow-none"
-      >
-        {isLoading ? "Generating..." : "Generate Video & Shorts Ideas"}
-      </button>
+            <button
+              onClick={handleGenerate}
+              disabled={isLoading || !userChannelId}
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_24px_45px_rgba(99,102,241,0.35)] transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400 focus:ring-offset-slate-950 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none"
+              type="button"
+            >
+              {isLoading ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+                  Generating ideas…
+                </>
+              ) : (
+                <>
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-base leading-none">✨</span>
+                  Generate video & shorts ideas
+                </>
+              )}
+            </button>
 
-      {error && <p className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-200 shadow-inner shadow-rose-500/10">{error}</p>}
+            {error && (
+              <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-200 shadow-inner shadow-rose-500/15">
+                {error}
+              </p>
+            )}
 
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-gray-700">
-          Upload Person Image (Optional)
-        </label>
-        <p className="text-xs text-gray-500">
-          Please upload a transparent background PNG image of the person to include in thumbnails.
-        </p>
-        <div className="relative">
-          <input 
-            ref={fileInputRef} 
-            type="file" 
-            accept="image/png" 
-            onChange={handleImageChange} 
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-          >
-            Choose File
-          </button>
-          {uploadedImageFile && (
-            <span className="ml-3 text-sm text-gray-600">
-              {uploadedImageFile.name}
-            </span>
-          )}
-        </div>
-        {uploadedImageDataUrl && (
-          <div className="mt-2">
-            <p className="text-xs text-green-600 mb-1">✓ Image uploaded</p>
-            <img 
-              src={uploadedImageDataUrl} 
-              alt="Uploaded" 
-              className="max-w-xs max-h-32 border rounded"
-            />
-          </div>
-        )}
-      </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-200">
+                  📁
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Optional person / product image</p>
+                  <p className="text-xs text-slate-400">Use PNGs with transparent backgrounds for the best results.</p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-5 shadow-inner shadow-slate-950/50">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+                <div
+                  className={`group flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed p-6 text-center transition ${dropZoneStateClasses}`}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setIsDragActive(true);
+                  }}
+                  onDragLeave={(event) => {
+                    event.preventDefault();
+                    setIsDragActive(false);
+                  }}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-2xl">
+                    🖼️
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-white">
+                      Drag & drop an image here
+                    </p>
+                    <p className="text-xs text-slate-300">
+                      PNG, JPG, JPEG, or WebP up to 5MB. We&apos;ll remove the background automatically.
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1 text-xs font-medium text-white transition group-hover:bg-white/20">
+                    Browse files
+                  </span>
+                </div>
 
-      {/* Shorts Ideas Section */}
-      <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-white">Shorts Ideas</h3>
-        {shortsIdeas.length === 0 && !isLoading && <p className="text-sm text-white/60">No shorts ideas generated yet.</p>}
-        <div className="flex flex-col">
-          {shortsIdeas.map(renderVideoCard)}
+                <div className="mt-4 space-y-3 text-sm text-slate-300">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs uppercase tracking-wide text-slate-400">Selected file</span>
+                    {uploadedImageFile ? (
+                      <span className="truncate text-xs text-indigo-200">{uploadedImageFile.name}</span>
+                    ) : (
+                      <span className="text-xs text-slate-500">None</span>
+                    )}
+                  </div>
+                  {uploadedImageDataUrl && (
+                    <div className="overflow-hidden rounded-xl border border-white/5 bg-black/40">
+                      <img
+                        src={uploadedImageDataUrl}
+                        alt="Uploaded preview"
+                        className="h-32 w-full object-contain"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
         </div>
       </section>
 
-      {/* Video Ideas Section */}
-      <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-white">Video Ideas</h3>
-        {videoIdeas.length === 0 && !isLoading && <p className="text-sm text-white/60">No video ideas generated yet.</p>}
-        <div className="flex flex-col">
-          {videoIdeas.map(renderVideoCard)}
+      <section className="flex flex-1 flex-col rounded-3xl border border-white/5 bg-slate-950/40 backdrop-blur-md">
+        <header className="border-b border-white/5 bg-white/5 px-6 py-4">
+            <h3 className="text-lg font-semibold text-white">Generated ideas</h3>
+            <p className="text-xs text-slate-300">Thumbnails and scripts appear here once generated.</p>
+          </header>
+        <div className="px-6 py-5">
+          <div className="space-y-8">
+            <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-base font-semibold text-white/90">Shorts ideas</h4>
+                  <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/60">
+                    {shortsIdeas.length} ready
+                  </span>
+                </div>
+                {shortsIdeas.length === 0 && !isLoading ? (
+                  <p className="text-sm text-white/50">No shorts ideas yet — generate to see suggestions.</p>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {shortsIdeas.map(renderVideoCard)}
+                  </div>
+                )}
+            </section>
+
+            <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-base font-semibold text-white/90">Video ideas</h4>
+                  <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/60">
+                    {videoIdeas.length} ready
+                  </span>
+                </div>
+                {videoIdeas.length === 0 && !isLoading ? (
+                  <p className="text-sm text-white/50">No video ideas yet — click generate to get started.</p>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {videoIdeas.map(renderVideoCard)}
+                  </div>
+                )}
+            </section>
+          </div>
         </div>
       </section>
     </div>

@@ -53,6 +53,7 @@ export async function getChannelVideos(auth, channelId) {
     }
 
     const videos = [];
+    const videoIds = [];
     let nextPageToken = undefined;
 
     do {
@@ -63,10 +64,18 @@ export async function getChannelVideos(auth, channelId) {
         pageToken: nextPageToken,
       });
 
-      plRes.data.items?.forEach(item => {
+      plRes.data.items?.forEach((item) => {
+        const videoId = item.snippet?.resourceId?.videoId;
+        if (!videoId) {
+          return;
+        }
+
+        videoIds.push(videoId);
         videos.push({
-          id: item.snippet?.resourceId?.videoId,
+          id: videoId,
           title: item.snippet?.title,
+          publishedAt: item.snippet?.publishedAt,
+          description: item.snippet?.description,
         });
       });
 
@@ -75,7 +84,41 @@ export async function getChannelVideos(auth, channelId) {
       nextPageToken = plRes.data.nextPageToken;
     } while (nextPageToken);
 
-    return videos;
+    if (videoIds.length === 0) {
+      return videos;
+    }
+
+    const detailedMap = new Map();
+    const chunkSize = 50;
+    for (let i = 0; i < videoIds.length; i += chunkSize) {
+      const chunk = videoIds.slice(i, i + chunkSize);
+      const detailRes = await youtube.videos.list({
+        id: chunk,
+        part: ["snippet", "statistics"],
+      });
+
+      detailRes.data.items?.forEach((video) => {
+        if (video?.id) {
+          detailedMap.set(video.id, video);
+        }
+      });
+    }
+
+    return videos.map((video) => {
+      const detail = detailedMap.get(video.id) || {};
+      const detailSnippet = detail.snippet || {};
+      const detailStats = detail.statistics || {};
+
+      return {
+        id: video.id,
+        title: video.title,
+        publishedAt: detailSnippet.publishedAt || video.publishedAt || null,
+        description: detailSnippet.description || video.description || "",
+        viewCount: Number(detailStats.viewCount || 0),
+        likeCount: Number(detailStats.likeCount || 0),
+        commentCount: Number(detailStats.commentCount || 0),
+      };
+    });
   } catch (err) {
     // Improve error message for upstream callers
     console.error("getChannelVideos error:", err?.message || err);

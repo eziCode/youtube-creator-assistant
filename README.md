@@ -3,11 +3,11 @@
 Boost your channel’s creative workflow with a single full-stack app that plans videos, responds to your community, and spins up shorts in minutes.
 
 ## Why Creators Love It
-- 📊 **Live analytics hub** – Track channel health, recent uploads, and deep-dive metrics without leaving the app.
-- 💬 **Comment copilot** – Pull in viewer comments, draft AI-assisted replies, and queue them for publishing in batches.
-- 💡 **Video idea generator** – Brainstorm titles, scripts, and talking points with Google Gemini and OpenAI prompts tailored to your niche.
-- 🎬 **Shorts studio** – Ingest long-form videos, trim highlights, generate scripts, and manage in-progress jobs all in one tab.
-- 🖼️ **Thumbnail spark** – Produce thumbnail concepts with Hugging Face models and swap between multiple drafts instantly.
+- 📊 **Analytics tab** – Track channel health, surface top-performing uploads, and monitor recent trends in one glance.
+- 💬 **Comments tab** – Pull in viewer feedback, draft AI-powered replies, and queue responses before publishing.
+- 🎬 **Shorts tab** – Trim long-form videos, auto-generate scripts from transcripts, and manage download/upload jobs.
+- 💡 **Video Ideas tab** – Brainstorm titles, outlines, and hook ideas with tailored Gemini + OpenAI prompts.
+- 🖼️ **Thumbnail helper** – Produce thumbnail concepts with Hugging Face models and iterate quickly.
 - 🔐 **Google sign-in ready** – OAuth keeps tokens fresh so every request to YouTube’s Data & Analytics APIs just works.
 
 ## What’s Under the Hood

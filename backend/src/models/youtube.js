@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 import dotenv from "dotenv";
+import ChannelVideosCache from "./ChannelVideosCache.js";
 dotenv.config();
 
 export async function getOAuth2Client(tokens) {
@@ -35,7 +36,41 @@ export async function getOAuth2Client(tokens) {
   return oauth2Client;
 }
 
-export async function getChannelVideos(auth, channelId) {
+const CACHE_TTL_MS = Number(process.env.CHANNEL_VIDEOS_CACHE_TTL_MS || 6 * 60 * 60 * 1000);
+
+const shouldUseCache = (doc) => {
+  if (!doc) return false;
+  if (!Array.isArray(doc.videos) || doc.videos.length === 0) return false;
+  if (!CACHE_TTL_MS || CACHE_TTL_MS <= 0) return false;
+  const fetchedAt = doc.fetchedAt ? new Date(doc.fetchedAt).getTime() : 0;
+  return Date.now() - fetchedAt < CACHE_TTL_MS;
+};
+
+const normalizeVideo = (video = {}) => ({
+  id: video.id || null,
+  title: video.title || "",
+  publishedAt: video.publishedAt || null,
+  description: video.description || "",
+  viewCount: Number.isFinite(video.viewCount) ? Number(video.viewCount) : 0,
+  likeCount: Number.isFinite(video.likeCount) ? Number(video.likeCount) : 0,
+  commentCount: Number.isFinite(video.commentCount) ? Number(video.commentCount) : 0,
+});
+
+export async function getChannelVideos(auth, channelId, { forceRefresh = false } = {}) {
+  if (!channelId) {
+    throw new Error("channelId is required");
+  }
+
+  const cached = await ChannelVideosCache.findOne({ channelId }).lean().catch((err) => {
+    console.warn("[getChannelVideos] Failed to read cache", err?.message || err);
+    return null;
+  });
+
+  if (!forceRefresh && shouldUseCache(cached)) {
+    console.log(`[getChannelVideos] Serving cached videos for channel ${channelId}`);
+    return cached.videos.map(normalizeVideo);
+  }
+
   const youtube = google.youtube({ version: "v3", auth });
   try {
     const res = await youtube.channels.list({
@@ -46,8 +81,9 @@ export async function getChannelVideos(auth, channelId) {
 
     const uploadsId = res.data.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
     if (!uploadsId) {
-      // If the uploads playlist isn't found, provide an informative error
-      const msg = `No uploads playlist found for channel ${channelId}. Response items: ${JSON.stringify(res.data.items?.map(i => i.id))}`;
+      const msg = `No uploads playlist found for channel ${channelId}. Response items: ${JSON.stringify(
+        res.data.items?.map((i) => i.id)
+      )}`;
       console.warn(msg);
       throw new Error(msg);
     }
@@ -85,7 +121,12 @@ export async function getChannelVideos(auth, channelId) {
     } while (nextPageToken);
 
     if (videoIds.length === 0) {
-      return videos;
+      await ChannelVideosCache.findOneAndUpdate(
+        { channelId },
+        { channelId, fetchedAt: new Date(), videos: [] },
+        { upsert: true, setDefaultsOnInsert: true }
+      ).catch((err) => console.warn("[getChannelVideos] Failed to write empty cache", err?.message || err));
+      return videos.map(normalizeVideo);
     }
 
     const detailedMap = new Map();
@@ -104,12 +145,12 @@ export async function getChannelVideos(auth, channelId) {
       });
     }
 
-    return videos.map((video) => {
+    const normalized = videos.map((video) => {
       const detail = detailedMap.get(video.id) || {};
       const detailSnippet = detail.snippet || {};
       const detailStats = detail.statistics || {};
 
-      return {
+      return normalizeVideo({
         id: video.id,
         title: video.title,
         publishedAt: detailSnippet.publishedAt || video.publishedAt || null,
@@ -117,12 +158,22 @@ export async function getChannelVideos(auth, channelId) {
         viewCount: Number(detailStats.viewCount || 0),
         likeCount: Number(detailStats.likeCount || 0),
         commentCount: Number(detailStats.commentCount || 0),
-      };
+      });
     });
+
+    await ChannelVideosCache.findOneAndUpdate(
+      { channelId },
+      { channelId, fetchedAt: new Date(), videos: normalized },
+      { upsert: true, setDefaultsOnInsert: true }
+    ).catch((err) => console.warn("[getChannelVideos] Failed to write cache", err?.message || err));
+
+    return normalized;
   } catch (err) {
-    // Improve error message for upstream callers
     console.error("getChannelVideos error:", err?.message || err);
-    // Re-throw so the route handler can return a 500 with details
+    if (shouldUseCache(cached)) {
+      console.warn("[getChannelVideos] Returning cached data after refresh error");
+      return cached.videos.map(normalizeVideo);
+    }
     throw err;
   }
 }

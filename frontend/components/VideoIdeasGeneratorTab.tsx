@@ -18,7 +18,6 @@ interface GeneratedVideo {
 const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userChannelId, useSample = false }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [shortsIdeas, setShortsIdeas] = useState<GeneratedVideo[]>([]);
   const [videoIdeas, setVideoIdeas] = useState<GeneratedVideo[]>([]);
   const [uploadedImageDataUrl, setUploadedImageDataUrl] = useState<string | null>(null);
   const [uploadedImageFile, setUploadedImageFile] = useState<File | null>(null);
@@ -37,7 +36,6 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
 
     setIsLoading(true);
     setError(null);
-    setShortsIdeas([]);
     setVideoIdeas([]);
 
     try {
@@ -78,7 +76,6 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
 
       // Handle newer backend response that may return a single llm_output + thumbnail_path
       if (data && (data.videos || data.shorts)) {
-        setShortsIdeas(data.shorts || []);
         setVideoIdeas(data.videos || []);
       } else if (data && (data.llm_output || data.thumbnail_path)) {
         // Try to extract a title from the LLM output
@@ -94,10 +91,8 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
           thumbnailPath: data.thumbnail_path || "",
         };
 
-        setShortsIdeas([]);
         setVideoIdeas([generated]);
       } else {
-        setShortsIdeas([]);
         setVideoIdeas([]);
       }
     } catch (err) {
@@ -173,19 +168,19 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
     const shouldShowToggle = previewLines.length > 4;
 
     return (
-      <article className="rounded-2xl border border-white/10 bg-slate-900/70 shadow-[0_16px_40px_rgba(15,23,42,0.45)] transition hover:border-indigo-400/30 hover:shadow-[0_22px_55px_rgba(79,70,229,0.25)]">
+      <article className="rounded-2xl border border-white/10 bg-slate-900/80 shadow-lg transition hover:border-indigo-400/30 hover:shadow-[0_20px_60px_rgba(79,70,229,0.25)]">
         <div className="flex flex-col gap-5 p-4 md:flex-row md:items-center">
           <div className="flex w-full justify-center md:w-auto">
-            <div className="relative max-w-full overflow-hidden rounded-xl border border-white/10 bg-slate-950/60">
+            <div className="relative max-w-full overflow-hidden rounded-xl border border-white/10 bg-slate-950/80">
               <div className="flex items-center justify-center p-3">
                 {thumbnailSrc ? (
                   <img
                     src={thumbnailSrc}
                     alt={video.title}
-                    className="max-h-56 w-auto max-w-full object-contain"
+                    className="max-h-40 w-auto max-w-full object-contain"
                   />
                 ) : (
-                  <div className="flex h-48 w-64 flex-col items-center justify-center gap-3 text-slate-400">
+                  <div className="flex h-36 w-56 flex-col items-center justify-center gap-3 text-slate-400">
                     <div className="h-11 w-11 animate-spin rounded-full border-2 border-white/20 border-t-white"></div>
                     <p className="text-xs uppercase tracking-wide text-slate-400">Generating thumbnail…</p>
                   </div>
@@ -228,7 +223,7 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
   const renderVideoCard = (video: GeneratedVideo) => <VideoCard key={video.id} video={video} />;
 
   return (
-    <div className="flex max-h-[calc(100vh-140px)] flex-col gap-6 overflow-y-auto pr-1 text-white">
+    <div className="flex h-full min-h-0 flex-col gap-6 text-white">
       <section className="flex flex-col flex-shrink-0 rounded-3xl border border-white/5 bg-slate-950/60 backdrop-blur-md shadow-[0_24px_80px_rgba(15,23,42,0.55)]">
         <div className="flex flex-1 flex-col gap-6 p-6">
             <header className="space-y-2">
@@ -343,29 +338,13 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
         </div>
       </section>
 
-      <section className="flex flex-1 flex-col rounded-3xl border border-white/5 bg-slate-950/40 backdrop-blur-md">
+      <section className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-3xl border border-white/5 bg-slate-950/60">
         <header className="border-b border-white/5 bg-white/5 px-6 py-4">
             <h3 className="text-lg font-semibold text-white">Generated ideas</h3>
             <p className="text-xs text-slate-300">Thumbnails and scripts appear here once generated.</p>
           </header>
-        <div className="px-6 py-5">
+        <div className="flex-1 overflow-y-auto px-6 py-5 pr-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="space-y-8">
-            <section className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-base font-semibold text-white/90">Shorts ideas</h4>
-                  <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/60">
-                    {shortsIdeas.length} ready
-                  </span>
-                </div>
-                {shortsIdeas.length === 0 && !isLoading ? (
-                  <p className="text-sm text-white/50">No shorts ideas yet — generate to see suggestions.</p>
-                ) : (
-                  <div className="flex flex-col gap-4">
-                    {shortsIdeas.map(renderVideoCard)}
-                  </div>
-                )}
-            </section>
-
             <section className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="text-base font-semibold text-white/90">Video ideas</h4>

@@ -256,6 +256,35 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, [videos, isDemoMode, videoSearchTerm]);
 
   const displayedVideos = useMemo(() => {
+    const term = videoSearchTerm.trim().toLowerCase();
+    const hasSearch = term.length > 0;
+
+    if (hasSearch) {
+      if (isDemoMode) {
+        return filteredVideos;
+      }
+
+      const withScores = [...filteredVideos].map((video) => {
+        const title = (video.title ?? '').toLowerCase();
+        const index = title.indexOf(term);
+        const startsWith = index === 0 ? 0 : index > 0 ? 1 : 2;
+        const score = index >= 0 ? index : Number.POSITIVE_INFINITY;
+        return { video, startsWith, score, title };
+      });
+
+      withScores.sort((a, b) => {
+        if (a.startsWith !== b.startsWith) {
+          return a.startsWith - b.startsWith;
+        }
+        if (a.score !== b.score) {
+          return a.score - b.score;
+        }
+        return a.title.localeCompare(b.title);
+      });
+
+      return withScores.map((entry) => entry.video);
+    }
+
     const list = [...filteredVideos];
     const compare = (a: Video, b: Video) => {
       switch (videoSortKey) {
@@ -282,7 +311,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       list.reverse();
     }
     return list;
-  }, [filteredVideos, videoSortKey, videoSortDirection]);
+  }, [filteredVideos, videoSearchTerm, isDemoMode, videoSortKey, videoSortDirection]);
 
   useEffect(() => {
     if (!isDemoMode || typeof onUpdateDemoChannel !== 'function') {

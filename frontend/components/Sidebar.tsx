@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Tab, Video } from '../types';
 import { ChartBarIcon, MessageCircleIcon, FilmIcon, SettingsIcon } from './icons';
 
@@ -10,6 +10,8 @@ interface SidebarProps {
   videos: Video[];
   isLoading: boolean;
   error: string | null;
+  isDemoMode?: boolean;
+  onOpenVideoBrowser: () => void;
 }
 
 const navItems = [
@@ -28,13 +30,37 @@ const Sidebar: React.FC<SidebarProps> = ({
   videos,
   isLoading,
   error,
+  isLoadingMore,
+  isDemoMode,
+  onOpenVideoBrowser,
 }) => {
-  const handleVideoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const video = videos.find(v => v.id === e.target.value);
-    setSelectedVideo(video ?? null);
+  const numberFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(undefined, {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+      }),
+    []
+  );
+
+  const formatCompactNumber = (value?: number | null) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+    return numberFormatter.format(value);
   };
 
-  const selectedVideoId = selectedVideo?.id ?? '';
+  const formatPublishedDate = (iso?: string | null) => {
+    if (!iso) return null;
+    const parsed = new Date(iso);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toLocaleDateString();
+  };
+
+  const handleVideoSelect = (video: Video) => {
+    setSelectedVideo(video);
+  };
+
+  const selectedVideoId = selectedVideo?.id ?? null;
+  const showEmptyState = !isLoading && videos.length === 0;
 
   return (
     <aside className="flex w-full flex-col gap-10 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_25px_70px_rgba(15,23,42,0.55)] backdrop-blur-xl lg:sticky lg:top-10">
@@ -93,44 +119,84 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-inner shadow-white/10">
         <div className="flex items-center justify-between gap-4">
-          <label htmlFor="video-select" className="text-sm font-semibold text-white/80 uppercase tracking-[0.2em]">
-            Selected Video
-          </label>
+          <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-white/80">
+            Video Library
+          </h3>
           <span className="text-[10px] uppercase text-white/40">
             Live sync
           </span>
         </div>
-        <div className="mt-4">
-          <select
-            id="video-select"
-            value={selectedVideoId}
-            onChange={handleVideoChange}
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white/80 shadow-inner shadow-black/40 transition focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/50 disabled:opacity-60"
-            disabled={isLoading || videos.length === 0}
-          >
-            {videos.length === 0 ? (
-              <option value="" disabled>
-                {isLoading ? 'Loading videos…' : 'No videos available'}
-              </option>
+
+        <button
+          type="button"
+          onClick={onOpenVideoBrowser}
+          className="mt-4 w-full rounded-2xl bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white shadow-[0_18px_45px_rgba(99,102,241,0.45)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(99,102,241,0.55)] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+        >
+          Browse & Filter
+        </button>
+        <p className="mt-2 text-xs text-white/60">
+          {isDemoMode
+            ? 'Open the full Outdoor Boys catalog to explore by keyword, popularity, or alphabetical order.'
+            : 'Browse your uploads in a dedicated picker to quickly update analytics, comments, and shorts.'}
+        </p>
+
+        <div className="mt-5 space-y-4">
+          <div className="max-h-72 overflow-y-auto pr-1">
+            {isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={`skeleton-${index}`}
+                    className="h-16 animate-pulse rounded-2xl border border-white/5 bg-white/5"
+                  />
+                ))}
+              </div>
+            ) : showEmptyState ? (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-white/60 shadow-inner shadow-white/5">
+                Videos will appear here once we fetch them from YouTube.
+              </div>
             ) : (
-              videos.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.title}
-                </option>
-              ))
+              <div className="space-y-3">
+                {videos.map((video) => {
+                  const isSelected = video.id === selectedVideoId;
+                  const publishedLabel = formatPublishedDate(video.publishedAt);
+                  const viewsLabel = formatCompactNumber(video.viewCount);
+
+                  return (
+                    <button
+                      key={video.id}
+                      type="button"
+                      onClick={() => handleVideoSelect(video)}
+                      className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                        isSelected
+                          ? 'border-indigo-400/50 bg-indigo-500/20 text-white shadow-[0_12px_25px_rgba(79,70,229,0.35)]'
+                          : 'border-white/10 bg-white/5 text-white/80 hover:border-white/20 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      <p className="truncate text-sm font-semibold">{video.title ?? 'Untitled video'}</p>
+                      <div className="mt-1 flex items-center justify-between text-[11px] text-white/50">
+                        <span>{publishedLabel ?? 'Date unknown'}</span>
+                        {viewsLabel && <span>{viewsLabel} views</span>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             )}
-          </select>
+          </div>
+
+          {error && !isLoading && (
+            <p className="rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-xs text-rose-200 shadow-inner shadow-rose-500/20">
+              Unable to load videos: {error}
+            </p>
+          )}
         </div>
-        {isLoading && (
-          <p className="mt-3 text-xs text-white/50">Loading videos from YouTube…</p>
-        )}
-        {error && !isLoading && (
-          <p className="mt-3 text-xs text-rose-300">Unable to load videos: {error}</p>
-        )}
       </div>
 
       <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-xs text-white/60 shadow-inner shadow-white/10">
-        Videos are fetched directly from your connected YouTube channel. Swap between them any time to update insights.
+        {isDemoMode
+          ? 'You are browsing the Outdoor Boys channel. Choose any upload to preview how analytics, comments, and shorts spring to life for a top-tier creator.'
+          : 'Videos are fetched directly from your connected YouTube channel. Pick one to refresh analytics, comment insights, and shorts suggestions.'}
       </div>
     </aside>
   );

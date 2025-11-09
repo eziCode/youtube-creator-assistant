@@ -30,6 +30,7 @@ import {
 	getJob as getShortJob,
 } from "../functions/shorts/shorts_job_manager.js";
 import authRouter from "./routes/auth.js";
+import demoRouter from "./routes/demo.js";
 
 dotenv.config();
 
@@ -124,6 +125,7 @@ app.use(
 const registerRoutes = () => {
 	app.use("/auth", authRouter);
 	app.use("/generate", generateRouter);
+	app.use("/demo", demoRouter);
 
 	app.post("/shorts/download", async (req, res) => {
 		if (!req.session?.tokens?.accessToken) {

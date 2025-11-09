@@ -3,8 +3,8 @@ import { RobotIcon, ChartBarIcon, MessageCircleIcon, FilmIcon, SettingsIcon, Inb
 
 interface LandingPageProps {
   onLogin: () => void;
-  // REMOVE-LATER: Prop for temporary dev button.
-  onGoToDashboard: () => void;
+  onStartDemo: () => void;
+  authError?: string;
 }
 
 const features = [
@@ -82,10 +82,10 @@ const sectionMeta = [
   { id: 'cta', label: 'Launch' },
 ];
 
-const LandingPage: React.FC<LandingPageProps> = ({ 
-  onLogin, 
-  // REMOVE-LATER: Prop for temporary dev button.
-  onGoToDashboard,
+const LandingPage: React.FC<LandingPageProps> = ({
+  onLogin,
+  onStartDemo,
+  authError,
 }) => {
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const [scrollProgress, setScrollProgress] = React.useState(0);
@@ -155,13 +155,21 @@ const LandingPage: React.FC<LandingPageProps> = ({
             </div>
           </div>
           <nav className="flex items-center gap-4 text-sm font-semibold text-white/70">
-            <button
-              onClick={onLogin}
-              className="relative overflow-hidden rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-6 py-2.5 text-sm font-semibold text-white shadow-[0_8px_30px_rgba(79,70,229,0.45)] transition-transform duration-200 hover:scale-105"
-            >
-              <span className="relative z-10">Login</span>
-              <span className="absolute inset-0 scale-150 bg-white/30 opacity-0 blur transition-opacity duration-300 hover:opacity-30" />
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onLogin}
+                className="relative overflow-hidden rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-6 py-2.5 text-sm font-semibold text-white shadow-[0_8px_30px_rgba(79,70,229,0.45)] transition-transform duration-200 hover:scale-105"
+              >
+                <span className="relative z-10">Login</span>
+                <span className="absolute inset-0 scale-150 bg-white/30 opacity-0 blur transition-opacity duration-300 hover:opacity-30" />
+              </button>
+              <button
+                onClick={onStartDemo}
+                className="rounded-full border border-white/15 bg-white/5 px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white/70 shadow-inner shadow-white/10 transition hover:-translate-y-0.5 hover:border-white/40 hover:text-white"
+              >
+                Launch Demo
+              </button>
+            </div>
           </nav>
         </div>
       </header>
@@ -209,6 +217,11 @@ const LandingPage: React.FC<LandingPageProps> = ({
         <div className="absolute inset-x-0 top-32 -z-10 mx-auto h-[600px] w-[600px] rounded-full bg-indigo-500/30 blur-3xl md:h-[720px] md:w-[720px]" />
         <div className="relative mx-auto flex max-w-7xl flex-col gap-16 px-5 md:flex-row md:items-center md:gap-20 md:px-8">
           <div className="max-w-2xl space-y-8">
+            {authError && (
+              <div className="rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-xs font-medium uppercase tracking-[0.3em] text-rose-100/80 shadow-inner shadow-rose-500/20">
+                {authError}
+              </div>
+            )}
             <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.3em] text-white/70 backdrop-blur-sm">
               <span className="relative inline-flex h-2 w-2">
                 <span className="absolute inset-0 rounded-full bg-emerald-300 opacity-70" />
@@ -233,14 +246,12 @@ const LandingPage: React.FC<LandingPageProps> = ({
               Sign in with Google
                 </span>
             </button>
-            {/* START: Temporary dev button. Delete this button later. */}
               <button
-                onClick={onGoToDashboard}
+                onClick={onStartDemo}
                 className="rounded-2xl border border-white/10 bg-white/5 px-8 py-3 text-base font-semibold text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] transition duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:text-white"
               >
-                Explore the Dashboard
-            </button>
-            {/* END: Temporary dev button. */}
+                Explore Demo Dashboard
+              </button>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               {[
@@ -426,8 +437,8 @@ const LandingPage: React.FC<LandingPageProps> = ({
             >
               Get started free
             </button>
-            <button
-              onClick={onGoToDashboard}
+              <button
+                onClick={onStartDemo}
               className="rounded-2xl border border-white/40 px-7 py-3 text-base font-semibold text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition duration-200 hover:bg-white/15"
             >
               See it in action

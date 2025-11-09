@@ -16,6 +16,8 @@ interface CommentsTabProps {
   tone: Tone;
   selectedVideo: Video | null;
   user: AuthenticatedUser | null;
+  isDemoMode?: boolean;
+  demoChannelTitle?: string;
 }
 
 const QUESTION_TOKENS = ['?', 'who', 'what', 'when', 'where', 'why', 'how', 'can you'];
@@ -45,7 +47,13 @@ const deriveRisk = (sentiment: Sentiment): RiskLevel =>
 const stripHtml = (value: string | undefined | null) =>
   typeof value === 'string' ? value.replace(/<[^>]*>/g, '') : '';
 
-const CommentsTab: React.FC<CommentsTabProps> = ({ tone, selectedVideo, user }) => {
+const CommentsTab: React.FC<CommentsTabProps> = ({
+  tone,
+  selectedVideo,
+  user,
+  isDemoMode = false,
+  demoChannelTitle,
+}) => {
   const [comments, setComments] = useState<CommentType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +62,7 @@ const CommentsTab: React.FC<CommentsTabProps> = ({ tone, selectedVideo, user }) 
   const [postingCommentId, setPostingCommentId] = useState<string | null>(null);
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const [commentErrors, setCommentErrors] = useState<Record<string, string>>({});
+  const [commentsDisabled, setCommentsDisabled] = useState(false);
 
   const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
 
@@ -129,13 +138,25 @@ const CommentsTab: React.FC<CommentsTabProps> = ({ tone, selectedVideo, user }) 
 
         setComments(normalized);
         setCommentErrors({});
+        setCommentsDisabled(false);
       } catch (err) {
         if (signal?.aborted) {
           return;
         }
         console.error('[comments] failed to load', err);
-        setComments([]);
-        setError(err instanceof Error ? err.message : 'Failed to load comments');
+        const message = err instanceof Error ? err.message : 'Failed to load comments';
+        const disabled =
+          typeof message === 'string' &&
+          (message.includes('commentsDisabled') || message.toLowerCase().includes('disabled comments'));
+        if (disabled) {
+          setComments([]);
+          setError(null);
+          setCommentsDisabled(true);
+        } else {
+          setComments([]);
+          setError(message);
+          setCommentsDisabled(false);
+        }
       } finally {
         if (!signal?.aborted) {
           setIsLoading(false);
@@ -330,6 +351,13 @@ const CommentsTab: React.FC<CommentsTabProps> = ({ tone, selectedVideo, user }) 
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-transparent" />
           <span>Loading comments from YouTube…</span>
         </div>
+      );
+    }
+    if (commentsDisabled) {
+      return (
+        <p className="text-sm text-white/60">
+          Comments are disabled for this video. Choose another upload to see community engagement.
+        </p>
       );
     }
     if (error) {

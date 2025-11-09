@@ -15,6 +15,71 @@ interface GeneratedVideo {
   thumbnailId?: string;
 }
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+type SampleIdeaBlueprint = Omit<GeneratedVideo, "id">;
+
+const SAMPLE_IDEA_BLUEPRINTS: SampleIdeaBlueprint[] = [
+  {
+    title: "I tried an AI camera rig for a week",
+    script: [
+      "Hook: drop the rig on the desk with that satisfying thunk.",
+      "Segment 1: quick montage of the auto-tracking nailing focus shifts.",
+      "Segment 2: live vlog test walking through a crowded hallway.",
+      "Segment 3: split-screen versus your classic gimbal setup.",
+      "Wrap: ask which rig they'd trust on a client shoot.",
+    ].join("\n"),
+    thumbnailPrompt:
+      "Creator holding a futuristic camera rig under neon magenta lights, high-contrast tech aesthetic, crisp typography that reads 'AI RIG TEST'.",
+    thumbnailPath: null,
+  },
+  {
+    title: "Vision Pro vs Quest: creator workflow showdown",
+    script: [
+      "Hook: stack both headsets and ask which one edits faster.",
+      "Segment 1: capture B-roll of timeline scrubbing inside each headset.",
+      "Segment 2: test color grading with hand controls versus controllers.",
+      "Segment 3: show export speed and battery drain overlays.",
+      "CTA: invite comments on which headset should get a studio tour next.",
+    ].join("\n"),
+    thumbnailPrompt:
+      "Split-screen thumbnail with Vision Pro and Quest headsets, bold lightning bolt divider, vibrant cyberpunk studio backdrop.",
+    thumbnailPath: null,
+  },
+  {
+    title: "Desk makeover 2025: build the dream creator workspace",
+    script: [
+      "Hook: reveal the chaotic 'before' shot with dramatic zoom.",
+      "Segment 1: timelapse of swapping in the ambient lighting and motorized desk.",
+      "Segment 2: cable management hacks with labeled drawers and magnetic ties.",
+      "Segment 3: show the final desk POV while editing a video.",
+      "CTA: offer a downloadable gear list in the description.",
+    ].join("\n"),
+    thumbnailPrompt:
+      "Ultra-wide desk shot with RGB lighting, dual monitors, overhead light bars, clean minimalist tech aesthetic, centered hero product.",
+    thumbnailPath: null,
+  },
+  {
+    title: "Top 5 creator-friendly Android phones right now",
+    script: [
+      "Hook: stack all five phones and call out the surprise winner.",
+      "Segment 1: test ultrawide camera stabilization on a downtown walk.",
+      "Segment 2: compare export times from a 4K vlog clip under a timer.",
+      "Segment 3: battery rundown chart with dramatic energy icons.",
+      "Wrap: crown the winner and tease a camera deep dive next week.",
+    ].join("\n"),
+    thumbnailPrompt:
+      "Fan-out of five modern Android phones on a reflective surface, neon accent lighting, bold text 'CREATOR PHONE RANKED'.",
+    thumbnailPath: null,
+  },
+];
+
+const buildSampleIdeas = (): GeneratedVideo[] =>
+  SAMPLE_IDEA_BLUEPRINTS.map((idea, index) => ({
+    ...idea,
+    id: `sample-idea-${index}-${Math.random().toString(36).slice(2, 7)}`,
+  })).sort(() => Math.random() - 0.5);
+
 const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userChannelId, useSample = false }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,17 +93,25 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
     : "border-white/10 bg-slate-900/50";
 
   const handleGenerate = async () => {
-    if (!userChannelId) {
+    if (!useSample && !userChannelId) {
       setError("No YouTube channel connected.");
       return;
     }
-    console.log("Generated video ideas for channel ID:", userChannelId);
 
     setIsLoading(true);
     setError(null);
     setVideoIdeas([]);
 
     try {
+      if (useSample) {
+        await delay(320);
+        const sampleIdeas = buildSampleIdeas();
+        setVideoIdeas(sampleIdeas);
+        return;
+      }
+
+      console.log("Generated video ideas for channel ID:", userChannelId);
+
       const payload: any = { channelId: userChannelId, useSample };
 
       // If user selected a file, upload it first via multipart/form-data
@@ -74,11 +147,9 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
         throw new Error(data?.error || "Failed to generate video ideas.");
       }
 
-      // Handle newer backend response that may return a single llm_output + thumbnail_path
       if (data && (data.videos || data.shorts)) {
         setVideoIdeas(data.videos || []);
       } else if (data && (data.llm_output || data.thumbnail_path)) {
-        // Try to extract a title from the LLM output
         const llm = data.llm_output || "";
         const titleMatch = llm.match(/1\.?\s*Catchy video title:\s*\"?([^\"\n]+)\"?/i);
         const title = titleMatch ? titleMatch[1].trim() : "Generated Video";

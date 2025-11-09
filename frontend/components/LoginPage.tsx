@@ -62,11 +62,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToHome, errorMessage })
         </section>
 
         <section className="w-full max-w-md">
-          <div className="rounded-2xl border border-white/10 bg-white/85 p-8 shadow-2xl backdrop-blur">
+          <div className="rounded-2xl border border-white/10 bg-slate-950/75 p-8 shadow-2xl backdrop-blur-lg">
             <div className="mb-6 space-y-2 text-center">
-              <p className="text-sm font-semibold uppercase tracking-wide text-indigo-600">Log in</p>
-              <h2 className="text-2xl font-bold text-slate-900">Welcome back, creator</h2>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm font-semibold uppercase tracking-wide text-indigo-200">Log in</p>
+              <h2 className="text-2xl font-bold text-white">Welcome back, creator</h2>
+              <p className="text-sm text-slate-300">
                 Connect your Google account to unlock the full suite of AI-driven tools.
               </p>
             </div>
@@ -84,13 +84,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToHome, errorMessage })
               <span className="text-base">Continue with Google</span>
             </button>
 
-            <div className="mt-6 space-y-4 text-xs text-slate-500">
+            <div className="mt-6 space-y-4 text-xs text-slate-400">
               <p className="text-center">
                 You will be redirected to Google to authorize access to your YouTube account.
               </p>
               <div className="flex items-center justify-center gap-2">
                 <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-                <p className="font-medium text-slate-600">OAuth2 secured. We never store your password.</p>
+                <p className="font-medium text-slate-200">OAuth2 secured. We never store your password.</p>
               </div>
               <p className="text-center">
                 Need an account? Join the waitlist to get early access to new features.

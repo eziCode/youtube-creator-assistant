@@ -43,6 +43,70 @@ const formatSeconds = (value: number) => {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 };
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const randomBetween = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+const DEMO_SHORT_TEMPLATES = [
+  {
+    title: "Hook them in five seconds",
+    hook: "Lead with the bold promise.",
+    reason: "Instantly sets the stakes and stops the scroll.",
+  },
+  {
+    title: "Show the visual payoff",
+    hook: "Reveal the jaw-drop moment immediately.",
+    reason: "People stay when they see the transformation fast.",
+  },
+  {
+    title: "Share the quick-win tactic",
+    hook: "Drop the clever shortcut first.",
+    reason: "Viewers love the 'I can try this now' vibe.",
+  },
+  {
+    title: "Highlight the relatable struggle",
+    hook: "Start with the 'we’ve all been there' moment.",
+    reason: "It earns empathy before you deliver the fix.",
+  },
+  {
+    title: "Deliver the mic-drop stat",
+    hook: "Lead with the surprising number.",
+    reason: "Stats create instant credibility and curiosity.",
+  },
+];
+
+const deriveVideoTopic = (video?: Video | null) => {
+  const source = video?.title ?? "";
+  const match = source.split(/\s+/).find((word) => word && word.length > 4);
+  return match ? match.replace(/[^a-z0-9]/gi, "").toLowerCase() : "idea";
+};
+
+const buildDemoShorts = (video?: Video | null): ShortClip[] => {
+  const topic = deriveVideoTopic(video);
+  const templateCount = randomBetween(3, 4);
+  const shuffled = [...DEMO_SHORT_TEMPLATES]
+    .map((template) => ({ template, sortKey: Math.random() }))
+    .sort((a, b) => a.sortKey - b.sortKey)
+    .slice(0, templateCount)
+    .map(({ template }) => template);
+
+  let cursor = 12;
+  return shuffled.map((template, index) => {
+    const padding = randomBetween(6, 12);
+    const startTime = cursor + randomBetween(0, 14);
+    const duration = randomBetween(14, 22);
+    const endTime = startTime + duration;
+    cursor = endTime + padding;
+
+    return {
+      startTime,
+      endTime,
+      title: template.title.replace("{topic}", topic),
+      hook: template.hook.replace("{topic}", topic),
+      reason: template.reason.replace("{topic}", topic),
+    };
+  });
+};
+
 const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo, isDemoMode = false }) => {
   const [shorts, setShorts] = useState<ShortClip[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -140,6 +204,12 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo, 
   }, [selectedVideo?.id, stopJobPolling]);
 
   useEffect(() => {
+    if (isDemoMode) {
+      setDownloadId(selectedVideo ? `demo-download-${selectedVideo.id}` : null);
+      setDownloadStatus(selectedVideo ? "completed" : null);
+      return;
+    }
+
     const runDownloadLifecycle = async () => {
       downloadRequestSeqRef.current += 1;
       const requestId = downloadRequestSeqRef.current;
@@ -213,9 +283,12 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo, 
     return () => {
       downloadRequestSeqRef.current += 1;
     };
-  }, [selectedVideo?.id]);
+  }, [isDemoMode, selectedVideo?.id]);
 
   useEffect(() => {
+    if (isDemoMode) {
+      return;
+    }
     if (!downloadId) {
       return;
     }
@@ -241,11 +314,16 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo, 
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [downloadId, downloadStatus]);
+  }, [downloadId, downloadStatus, isDemoMode]);
 
   useEffect(() => {
     return () => {
       stopJobPolling();
+      if (isDemoMode) {
+        currentDownloadIdRef.current = null;
+        currentDownloadVideoIdRef.current = null;
+        return;
+      }
       const currentId = currentDownloadIdRef.current;
       if (currentId) {
         cancelShortDownload(currentId, true).catch(() => undefined);
@@ -253,7 +331,7 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo, 
       currentDownloadIdRef.current = null;
       currentDownloadVideoIdRef.current = null;
     };
-  }, [stopJobPolling]);
+  }, [isDemoMode, stopJobPolling]);
 
   const handleGenerateShorts = async () => {
     if (!selectedVideo) {
@@ -263,16 +341,26 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo, 
 
     try {
       setIsLoading(true);
-      setNotification("Analyzing selected video for high-impact moments…");
-      const generatedClips = await fetchShortIdeas(selectedVideo.id, selectedVideo.title);
-
-      if (!generatedClips.length) {
-        setNotification("No strong shorts candidates were identified for this video.");
+      if (isDemoMode) {
+        setNotification("Skimming your video for snackable beats…");
+        await wait(randomBetween(220, 420));
+        const demoShorts = buildDemoShorts(selectedVideo);
+        setShorts(demoShorts);
+        setNotification(
+          `Pinned ${demoShorts.length} high-impact moment${demoShorts.length > 1 ? "s" : ""} to try.`
+        );
       } else {
-        setNotification(`Found ${generatedClips.length} potential short${generatedClips.length > 1 ? "s" : ""}.`);
-      }
+        setNotification("Analyzing selected video for high-impact moments…");
+        const generatedClips = await fetchShortIdeas(selectedVideo.id, selectedVideo.title);
 
-      setShorts(generatedClips);
+        if (!generatedClips.length) {
+          setNotification("No strong shorts candidates were identified for this video.");
+        } else {
+          setNotification(`Found ${generatedClips.length} potential short${generatedClips.length > 1 ? "s" : ""}.`);
+        }
+
+        setShorts(generatedClips);
+      }
     } catch (error) {
       console.error("[shorts] failed to generate ideas", error);
       setNotification(error instanceof Error ? error.message : "Failed to analyze video for shorts.");
@@ -301,26 +389,51 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo, 
     setNotification("Short creation initiated. We’ll update you once it’s ready.");
 
     try {
-      const publication = await publishShortClip({
-        videoId: selectedVideo.id,
-        clip,
-        videoTitle: selectedVideo.title,
-        downloadId,
-      });
-      setPublishResults((prev) => ({
-        ...prev,
-        [clipIndex]: publication,
-      }));
+      if (isDemoMode) {
+        await wait(randomBetween(260, 480));
+        const shareUrl = `https://youtu.be/demo-short-${clipIndex + 1}`;
+        const publication = {
+          jobId: `demo-job-${clipIndex}`,
+          status: "completed" as const,
+          shareUrl,
+          estimatedProcessingSeconds: 90,
+          message: "Short exported—preview link ready.",
+          metadata: {
+            videoId: selectedVideo.id,
+            startTime: clip.startTime,
+            endTime: clip.endTime,
+            title: clip.title,
+            hook: clip.hook,
+            reason: clip.reason,
+          },
+        };
+        setPublishResults((prev) => ({
+          ...prev,
+          [clipIndex]: publication,
+        }));
+        setNotification("Demo short rendered—grab the preview link below.");
+      } else {
+        const publication = await publishShortClip({
+          videoId: selectedVideo.id,
+          clip,
+          videoTitle: selectedVideo.title,
+          downloadId,
+        });
+        setPublishResults((prev) => ({
+          ...prev,
+          [clipIndex]: publication,
+        }));
 
-      if (publication.jobId) {
-        startJobPolling(publication.jobId, clipIndex);
+        if (publication.jobId) {
+          startJobPolling(publication.jobId, clipIndex);
+        }
+
+        const statusLabel = publication.status === "completed" ? "published" : publication.status;
+        const baseMessage =
+          publication.message ??
+          `Short ${clipIndex + 1} ${statusLabel}. ${publication.shareUrl ? "Preview link ready." : ""}`.trim();
+        setNotification(baseMessage || "Short creation in progress.");
       }
-
-      const statusLabel = publication.status === "completed" ? "published" : publication.status;
-      const baseMessage =
-        publication.message ??
-        `Short ${clipIndex + 1} ${statusLabel}. ${publication.shareUrl ? "Preview link ready." : ""}`.trim();
-      setNotification(baseMessage || "Short creation in progress.");
     } catch (error) {
       console.error("[shorts] failed to publish clip", error);
       setNotification(error instanceof Error ? error.message : "Failed to publish short.");

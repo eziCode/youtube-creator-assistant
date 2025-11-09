@@ -708,7 +708,12 @@ const Dashboard: React.FC<DashboardProps> = ({
       case 'settings':
         return <SettingsTab tone={tone} setTone={setTone} />;
       case 'videoIdeas':
-        return <VideoIdeasGeneratorTab userChannelId={user?.channelId ?? null} useSample={useSampleData} />;
+        return (
+          <VideoIdeasGeneratorTab
+            userChannelId={user?.channelId ?? null}
+            useSample={isDemoMode || useSampleData}
+          />
+        );
       default:
         return <div>Select a tab</div>;
 

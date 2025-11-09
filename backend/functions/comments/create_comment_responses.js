@@ -2,6 +2,7 @@ import axios from "axios";
 
 const DEFAULT_MODEL = process.env.OPENAI_CHAT_MODEL || "gpt-4.1-nano";
 const MAX_RESPONSES = 10;
+const MAX_WORDS_PER_REPLY = 12;
 
 const assertEnv = () => {
 	const apiKey = process.env.OPENAI_API_KEY;
@@ -46,11 +47,11 @@ const buildPrompt = (comments) => {
 		{
 			role: "system",
 			content:
-				"You craft warm, authentic YouTube comment replies that sound human, not corporate or robotic. Keep them concise and conversational.",
+				`You craft warm, authentic YouTube comment replies that sound human, not corporate or robotic. Every reply must be exactly one short phrase under ${MAX_WORDS_PER_REPLY} words. Avoid punctuation-heavy or formal phrasing.`,
 		},
 		{
 			role: "user",
-			content: `Write thoughtful replies to these comments. Each response should feel personal, natural, and avoid generic phrases like "Thank you for your comment." You can reference the original text if it helps, but keep the tone friendly and relaxed.\n\nReturn only valid JSON mapping "commentId" -> "responseText". Do not include commentary or markdown.\n\nComments:\n${commentLines}`,
+			content: `Write thoughtful replies to these comments. Each response must be a single natural phrase (no full sentences) under ${MAX_WORDS_PER_REPLY} words, friendly, and specific. Don't start with greetings, avoid generic thanks, and keep things casual.\n\nReturn only valid JSON mapping "commentId" -> "responseText". Do not include commentary or markdown.\n\nComments:\n${commentLines}`,
 		},
 	];
 };
@@ -93,7 +94,7 @@ const createCommentResponses = async (comments, { maxResponses = MAX_RESPONSES }
 			{
 				model: DEFAULT_MODEL,
 				temperature: 0.7,
-				max_tokens: 400,
+				max_tokens: 80,
 				messages,
 				response_format: { type: "json_object" },
 			},

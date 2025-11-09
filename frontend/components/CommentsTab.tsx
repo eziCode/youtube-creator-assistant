@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   AuthenticatedUser,
   Comment as CommentType,
@@ -9,7 +9,7 @@ import type {
   Video,
 } from '../types';
 import { API_BASE_URL } from '../constants';
-import { regenerateReply } from '../services/geminiService';
+import { generateReplyPreview, regenerateReply } from '../services/geminiService';
 import { RobotIcon, InboxIcon } from './icons';
 
 interface CommentsTabProps {
@@ -47,6 +47,120 @@ const deriveRisk = (sentiment: Sentiment): RiskLevel =>
 const stripHtml = (value: string | undefined | null) =>
   typeof value === 'string' ? value.replace(/<[^>]*>/g, '') : '';
 
+const DISPLAY_MIN = 4;
+const DISPLAY_MAX = 8;
+
+const DEMO_VIEWERS = [
+  'Avery',
+  'Jordan',
+  'Harper',
+  'Sky',
+  'Kai',
+  'Rowan',
+  'Ember',
+  'Nova',
+  'Indie',
+  'Sage',
+  'Mika',
+  'Phoenix',
+  'Luca',
+  'Remy',
+  'Quinn',
+  'Holland',
+  'Blair',
+  'Sloane',
+  'River',
+  'Jules',
+];
+
+const DEMO_COMMENTS = [
+  'This breakdown is exactly what I needed today.',
+  'Can you clarify how you set up the lighting?',
+  'Your energy always brightens my feed!',
+  'The pace felt a little fast in the second half.',
+  'I never miss these uploads—keep them coming.',
+  'Any chance you’ll cover monetization next?',
+  'This tip saved me so much time.',
+  'I laughed so hard at the intro gag 😂',
+  'What mic are you using in this video?',
+  'I tried this trick and it totally worked!',
+  'Could you share the template you mentioned?',
+  'Love seeing behind-the-scenes like this.',
+  'This is the clearest explanation I’ve seen.',
+  'Please do more breakdowns like this one!',
+  'I shared this with my team immediately.',
+  'How often should we repeat this process?',
+  'This is such a chill vibe, thanks!',
+  'I’m confused about the third step, help?',
+  'Love the thumbnail—who designed it?',
+  'I needed this reminder today.',
+];
+
+const randomBetween = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+const wait = (ms: number) => new Promise((resolve) => {
+  setTimeout(resolve, ms);
+});
+
+const sentimentPriority: Record<Sentiment, number> = {
+  question: 0,
+  negative: 1,
+  neutral: 2,
+  positive: 3,
+};
+
+const computeRelevanceScore = (comment: CommentType) => {
+  let score = 0;
+
+  score += comment.status === 'auto-replied' ? 8 : 0;
+  score += comment.risk === 'high' ? 0 : 4;
+  const sentimentRank = sentimentPriority[comment.sentiment ?? 'neutral'] ?? 2;
+  score += sentimentRank;
+
+  return score;
+};
+
+const parsePublishedAt = (value?: string | null) => {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return Number.NEGATIVE_INFINITY;
+  }
+  return timestamp;
+};
+
+const pickDemoComments = (limit: number): CommentType[] => {
+  const total = Math.min(limit, DEMO_COMMENTS.length);
+  const shuffled = DEMO_COMMENTS.map((text, index) => ({
+    text,
+    sortKey: Math.random(),
+    index,
+  }))
+    .sort((a, b) => a.sortKey - b.sortKey)
+    .slice(0, total);
+
+  return shuffled.map(({ text, index }, idx) => {
+    const name = DEMO_VIEWERS[(index + idx) % DEMO_VIEWERS.length];
+    const sentiment = inferSentiment(text);
+    const risk = deriveRisk(sentiment);
+
+    return {
+      id: `demo-comment-${index}`,
+      text,
+      author: {
+        displayName: name,
+        channelId: null,
+      },
+      sentiment,
+      risk,
+      suggestedReply: '',
+      status: 'pending',
+      autoReplyId: null,
+      replies: [],
+      publishedAt: new Date(Date.now() - idx * 45 * 60 * 1000).toISOString(),
+    };
+  });
+};
+
 const CommentsTab: React.FC<CommentsTabProps> = ({
   tone,
   selectedVideo,
@@ -65,17 +179,86 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
   const [commentsDisabled, setCommentsDisabled] = useState(false);
 
   const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
+  const displayLimitRef = useRef<number>(randomBetween(DISPLAY_MIN, DISPLAY_MAX));
+
+  const seedSuggestedReplies = useCallback(
+    async (items: CommentType[], signal?: AbortSignal): Promise<CommentType[]> => {
+      const seeded = await Promise.all(
+        items.map(async (comment) => {
+          if (signal?.aborted) {
+            return comment;
+          }
+          const existing = comment.suggestedReply?.trim();
+          if (existing) {
+            return {
+              ...comment,
+              suggestedReply: existing,
+            };
+          }
+          try {
+            const generated = await generateReplyPreview(comment, tone, {
+              videoTitle: selectedVideo?.title ?? null,
+              isDemo: isDemoMode,
+            });
+            if (signal?.aborted) {
+              return comment;
+            }
+            return {
+              ...comment,
+              suggestedReply: generated,
+            };
+          } catch (error) {
+            console.warn('[comments] failed to seed reply', error);
+            return {
+              ...comment,
+              suggestedReply: comment.suggestedReply ?? '',
+            };
+          }
+        })
+      );
+      return seeded;
+    },
+    [isDemoMode, selectedVideo?.title, tone]
+  );
+
+  const enforceDisplayLimit = useCallback(
+    (items: CommentType[]) => {
+      const limit = displayLimitRef.current;
+      if (items.length <= limit) {
+        return items;
+      }
+      const scored = [...items].sort((a, b) => {
+        const scoreA = computeRelevanceScore(a);
+        const scoreB = computeRelevanceScore(b);
+        if (scoreA !== scoreB) {
+          return scoreA - scoreB;
+        }
+        const publishedA = parsePublishedAt(a.publishedAt);
+        const publishedB = parsePublishedAt(b.publishedAt);
+        if (publishedA !== publishedB) {
+          return publishedB - publishedA;
+        }
+        return a.id.localeCompare(b.id);
+      });
+      return scored.slice(0, limit);
+    },
+    []
+  );
 
   useEffect(() => {
     setRegenerateError(null);
     setCommentErrors({});
   }, [selectedVideo?.id]);
 
+  useEffect(() => {
+    displayLimitRef.current = randomBetween(DISPLAY_MIN, DISPLAY_MAX);
+  }, [isDemoMode, selectedVideo?.id]);
+
   const loadComments = useCallback(
     async (signal?: AbortSignal) => {
       const videoId = selectedVideo?.id;
 
-      if (!videoId) {
+      if (!videoId && !isDemoMode) {
         setComments([]);
         setError(null);
         setIsLoading(false);
@@ -87,56 +270,68 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
       setError(null);
 
       try {
-        const response = await fetch(
-          `${apiBaseUrl}/retrieve-comments?videoId=${encodeURIComponent(videoId)}`,
-          {
-            credentials: 'include',
-            signal,
+        let normalized: CommentType[] = [];
+
+        if (isDemoMode) {
+          normalized = pickDemoComments(displayLimitRef.current);
+        } else if (videoId) {
+          const response = await fetch(
+            `${apiBaseUrl}/retrieve-comments?videoId=${encodeURIComponent(videoId)}`,
+            {
+              credentials: 'include',
+              signal,
+            }
+          );
+
+          const payload = await response.json().catch(() => null);
+
+          if (!response.ok) {
+            const message =
+              (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string')
+                ? payload.error
+                : `Failed to load comments (status ${response.status})`;
+            throw new Error(message);
           }
-        );
 
-        const payload = await response.json().catch(() => null);
+          const creatorChannelId = user?.channelId ?? null;
+          const fetched: CommentType[] = Array.isArray(payload?.comments) ? payload.comments : [];
+          normalized = fetched.map((comment) => {
+            const replies = Array.isArray(comment.replies)
+              ? comment.replies.map((reply) => ({
+                  ...reply,
+                  text: stripHtml(reply.text),
+                }))
+              : [];
+            const sanitizedText = stripHtml(comment.text);
+            const sentiment = comment.sentiment ?? inferSentiment(sanitizedText);
+            const risk = comment.risk ?? deriveRisk(sentiment);
+            const creatorReply = creatorChannelId
+              ? replies.find((reply) => reply.author?.channelId && reply.author.channelId === creatorChannelId)
+              : undefined;
+            const suggestedReply = creatorReply?.text ?? comment.suggestedReply ?? '';
+            const status: CommentStatus = creatorReply ? 'auto-replied' : comment.status ?? 'pending';
+            const autoReplyId = creatorReply?.id ?? comment.autoReplyId ?? null;
 
-        if (!response.ok) {
-          const message =
-            (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string')
-              ? payload.error
-              : `Failed to load comments (status ${response.status})`;
-          throw new Error(message);
+            return {
+              ...comment,
+              text: sanitizedText,
+              replies,
+              sentiment,
+              risk,
+              suggestedReply,
+              status,
+              autoReplyId,
+            } as CommentType;
+          });
         }
 
-        const creatorChannelId = user?.channelId ?? null;
-        const fetched: CommentType[] = Array.isArray(payload?.comments) ? payload.comments : [];
-        const normalized = fetched.map((comment) => {
-          const replies = Array.isArray(comment.replies)
-            ? comment.replies.map((reply) => ({
-                ...reply,
-                text: stripHtml(reply.text),
-              }))
-            : [];
-          const sanitizedText = stripHtml(comment.text);
-          const sentiment = comment.sentiment ?? inferSentiment(sanitizedText);
-          const risk = comment.risk ?? deriveRisk(sentiment);
-          const creatorReply = creatorChannelId
-            ? replies.find((reply) => reply.author?.channelId && reply.author.channelId === creatorChannelId)
-            : undefined;
-          const suggestedReply = creatorReply?.text ?? comment.suggestedReply ?? '';
-          const status: CommentStatus = creatorReply ? 'auto-replied' : comment.status ?? 'pending';
-          const autoReplyId = creatorReply?.id ?? comment.autoReplyId ?? null;
+        const limited = enforceDisplayLimit(normalized);
+        const seeded = await seedSuggestedReplies(limited, signal);
+        if (signal?.aborted) {
+          return;
+        }
 
-          return {
-            ...comment,
-            text: sanitizedText,
-            replies,
-            sentiment,
-            risk,
-            suggestedReply,
-            status,
-            autoReplyId,
-          } as CommentType;
-        });
-
-        setComments(normalized);
+        setComments(seeded);
         setCommentErrors({});
         setCommentsDisabled(false);
       } catch (err) {
@@ -163,7 +358,7 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
         }
       }
     },
-    [apiBaseUrl, selectedVideo?.id, user?.channelId]
+    [apiBaseUrl, enforceDisplayLimit, isDemoMode, seedSuggestedReplies, selectedVideo?.id, user?.channelId]
   );
 
   useEffect(() => {
@@ -207,7 +402,12 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
     setIsRegenerating(comment.id);
 
     try {
-      const newReply = await regenerateReply(comment, tone, { videoTitle: selectedVideo?.title });
+      const newReply = isDemoMode
+        ? await generateReplyPreview(comment, tone, {
+            videoTitle: selectedVideo?.title ?? null,
+            isDemo: true,
+          })
+        : await regenerateReply(comment, tone, { videoTitle: selectedVideo?.title });
       updateSuggestedReply(comment.id, newReply);
     } catch (err) {
       console.error('[comments] regenerate failed', err);
@@ -233,48 +433,58 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
     setPostingCommentId(comment.id);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/comments/respond`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          responses: {
-            [comment.id]: trimmedReply,
+      if (isDemoMode) {
+        await wait(450);
+        updateComment(comment.id, (prev) => ({
+          ...prev,
+          status: 'auto-replied',
+          autoReplyId: prev.autoReplyId ?? `demo-reply-${prev.id}`,
+          suggestedReply: trimmedReply,
+        }));
+      } else {
+        const response = await fetch(`${apiBaseUrl}/comments/respond`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        }),
-      });
+          body: JSON.stringify({
+            responses: {
+              [comment.id]: trimmedReply,
+            },
+          }),
+        });
 
-      const payload = await response.json().catch(() => null);
+        const payload = await response.json().catch(() => null);
 
-      if (!response.ok) {
-        const message =
-          (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string')
-            ? payload.error
-            : `Failed to post reply (status ${response.status})`;
-        throw new Error(message);
+        if (!response.ok) {
+          const message =
+            (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string')
+              ? payload.error
+              : `Failed to post reply (status ${response.status})`;
+          throw new Error(message);
+        }
+
+        const successes: Array<{ commentId?: string; replyId?: string | null; responseText?: string }> =
+          Array.isArray(payload?.successes) ? payload.successes : [];
+        const successEntry = successes.find((entry) => entry?.commentId === comment.id);
+
+        if (!successEntry) {
+          const failures: Array<{ commentId?: string; error?: string }> = Array.isArray(payload?.failures)
+            ? payload.failures
+            : [];
+          const failureEntry = failures.find((entry) => entry?.commentId === comment.id);
+          const failureMessage = failureEntry?.error ?? 'Failed to post reply';
+          throw new Error(failureMessage);
+        }
+
+        updateComment(comment.id, (prev) => ({
+          ...prev,
+          status: 'auto-replied',
+          autoReplyId: successEntry.replyId ?? prev.autoReplyId ?? null,
+          suggestedReply: trimmedReply,
+        }));
       }
-
-      const successes: Array<{ commentId?: string; replyId?: string | null; responseText?: string }> =
-        Array.isArray(payload?.successes) ? payload.successes : [];
-      const successEntry = successes.find((entry) => entry?.commentId === comment.id);
-
-      if (!successEntry) {
-        const failures: Array<{ commentId?: string; error?: string }> = Array.isArray(payload?.failures)
-          ? payload.failures
-          : [];
-        const failureEntry = failures.find((entry) => entry?.commentId === comment.id);
-        const failureMessage = failureEntry?.error ?? 'Failed to post reply';
-        throw new Error(failureMessage);
-      }
-
-      updateComment(comment.id, (prev) => ({
-        ...prev,
-        status: 'auto-replied',
-        autoReplyId: successEntry.replyId ?? prev.autoReplyId ?? null,
-        suggestedReply: trimmedReply,
-      }));
     } catch (err) {
       console.error('[comments] failed to post reply', err);
       const message = err instanceof Error ? err.message : 'Failed to post reply';
@@ -298,26 +508,35 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
     setDeletingCommentId(comment.id);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/comments/${encodeURIComponent(comment.autoReplyId)}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      if (isDemoMode) {
+        await wait(350);
+        updateComment(comment.id, (prev) => ({
+          ...prev,
+          status: 'pending',
+          autoReplyId: null,
+        }));
+      } else {
+        const response = await fetch(`${apiBaseUrl}/comments/${encodeURIComponent(comment.autoReplyId)}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
 
-      const payload = await response.json().catch(() => null);
+        const payload = await response.json().catch(() => null);
 
-      if (!response.ok) {
-        const message =
-          (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string')
-            ? payload.error
-            : `Failed to delete reply (status ${response.status})`;
-        throw new Error(message);
+        if (!response.ok) {
+          const message =
+            (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string')
+              ? payload.error
+              : `Failed to delete reply (status ${response.status})`;
+          throw new Error(message);
+        }
+
+        updateComment(comment.id, (prev) => ({
+          ...prev,
+          status: 'pending',
+          autoReplyId: null,
+        }));
       }
-
-      updateComment(comment.id, (prev) => ({
-        ...prev,
-        status: 'pending',
-        autoReplyId: null,
-      }));
     } catch (err) {
       console.error('[comments] failed to delete reply', err);
       const message = err instanceof Error ? err.message : 'Failed to undo auto-reply';
@@ -342,7 +561,7 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
   }, [comments]);
 
   const renderStatusMessage = () => {
-    if (!selectedVideo?.id) {
+    if (!selectedVideo?.id && !isDemoMode) {
       return <p className="text-sm text-white/60">Select a video from the sidebar to review its comments.</p>;
     }
     if (isLoading) {
@@ -412,12 +631,14 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
                         <div className="text-sm font-semibold text-white">{comment.author.displayName}</div>
                         <p className="mt-1 text-sm text-white/80">{comment.text}</p>
                       </div>
-                      <div className="flex gap-2">
-                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/70">
-                          {comment.risk} Risk
+                      <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide text-white/70">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-emerald-100 shadow-inner shadow-emerald-500/25">
+                          <span className="text-emerald-300/90">Risk</span>
+                          <span className="capitalize text-white">{comment.risk}</span>
                         </span>
-                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/70">
-                          {comment.sentiment}
+                        <span className="inline-flex items-center gap-1 rounded-full border border-sky-400/40 bg-sky-500/10 px-3 py-1 text-sky-100 shadow-inner shadow-sky-500/25">
+                          <span className="text-sky-300/90">Tone</span>
+                          <span className="capitalize text-white">{comment.sentiment}</span>
                         </span>
                       </div>
                     </div>
@@ -427,17 +648,17 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
                       </label>
                       <p className="text-sm text-white/80">{comment.suggestedReply}</p>
                     </div>
-                <div className="mt-3 flex flex-col items-end gap-2">
+                    <div className="mt-3 flex flex-col items-end gap-2">
                       <button
-                    onClick={() => handleUndoAutoReply(comment)}
-                    disabled={deletingCommentId === comment.id || postingCommentId === comment.id}
-                    className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white/80 transition hover:border-white/30 hover:bg-white/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => handleUndoAutoReply(comment)}
+                        disabled={deletingCommentId === comment.id || postingCommentId === comment.id}
+                        className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white/80 transition hover:border-white/30 hover:bg-white/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                    {deletingCommentId === comment.id ? 'Deleting…' : 'Undo Auto-Reply'}
+                        {deletingCommentId === comment.id ? 'Deleting…' : 'Undo Auto-Reply'}
                       </button>
-                  {commentErrors[comment.id] && (
-                    <p className="text-xs text-rose-300">{commentErrors[comment.id]}</p>
-                  )}
+                      {commentErrors[comment.id] && (
+                        <p className="text-xs text-rose-300">{commentErrors[comment.id]}</p>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -465,12 +686,14 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
                         <div className="text-sm font-semibold text-white">{comment.author.displayName}</div>
                         <p className="mt-1 text-sm text-white/80">{comment.text}</p>
                       </div>
-                      <div className="flex gap-2">
-                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/70">
-                          {comment.risk} Risk
+                      <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide text-white/70">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-white/70 shadow-inner shadow-white/10">
+                          <span className="text-indigo-200/90">Risk</span>
+                          <span className="capitalize text-white/90">{comment.risk}</span>
                         </span>
-                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/70">
-                          {comment.sentiment}
+                        <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-white/70 shadow-inner shadow-white/10">
+                          <span className="text-indigo-200/90">Tone</span>
+                          <span className="capitalize text-white/90">{comment.sentiment}</span>
                         </span>
                       </div>
                     </div>

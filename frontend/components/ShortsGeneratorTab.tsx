@@ -369,7 +369,7 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo, 
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="space-y-6">
         <Card title="1. Select a Video">
           {!selectedVideo && (
             <div className="text-sm text-white/60">
@@ -397,8 +397,8 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo, 
                     </p>
                   )}
                   {selectedVideo.description && (
-                    <p className="mt-2 text-xs text-white/60 line-clamp-3">
-                      {selectedVideo.description}
+                    <p className="mt-2 text-xs text-white/60">
+                      {selectedVideo.description.split('\n')[0]}
                     </p>
                   )}
                 </div>

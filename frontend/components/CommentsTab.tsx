@@ -47,8 +47,8 @@ const deriveRisk = (sentiment: Sentiment): RiskLevel =>
 const stripHtml = (value: string | undefined | null) =>
   typeof value === 'string' ? value.replace(/<[^>]*>/g, '') : '';
 
-const DISPLAY_MIN = 12;
-const DISPLAY_MAX = 18;
+const DISPLAY_MIN = 4;
+const DISPLAY_MAX = 8;
 
 const DEMO_VIEWERS = [
   'Avery',
@@ -101,6 +101,33 @@ const wait = (ms: number) => new Promise((resolve) => {
   setTimeout(resolve, ms);
 });
 
+const sentimentPriority: Record<Sentiment, number> = {
+  question: 0,
+  negative: 1,
+  neutral: 2,
+  positive: 3,
+};
+
+const computeRelevanceScore = (comment: CommentType) => {
+  let score = 0;
+
+  score += comment.status === 'auto-replied' ? 8 : 0;
+  score += comment.risk === 'high' ? 0 : 4;
+  const sentimentRank = sentimentPriority[comment.sentiment ?? 'neutral'] ?? 2;
+  score += sentimentRank;
+
+  return score;
+};
+
+const parsePublishedAt = (value?: string | null) => {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return Number.NEGATIVE_INFINITY;
+  }
+  return timestamp;
+};
+
 const pickDemoComments = (limit: number): CommentType[] => {
   const total = Math.min(limit, DEMO_COMMENTS.length);
   const shuffled = DEMO_COMMENTS.map((text, index) => ({
@@ -129,6 +156,7 @@ const pickDemoComments = (limit: number): CommentType[] => {
       status: 'pending',
       autoReplyId: null,
       replies: [],
+      publishedAt: new Date(Date.now() - idx * 45 * 60 * 1000).toISOString(),
     };
   });
 };
@@ -199,11 +227,20 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
       if (items.length <= limit) {
         return items;
       }
-      return items
-        .map((comment) => ({ comment, sortKey: Math.random() }))
-        .sort((a, b) => a.sortKey - b.sortKey)
-        .slice(0, limit)
-        .map(({ comment }) => comment);
+      const scored = [...items].sort((a, b) => {
+        const scoreA = computeRelevanceScore(a);
+        const scoreB = computeRelevanceScore(b);
+        if (scoreA !== scoreB) {
+          return scoreA - scoreB;
+        }
+        const publishedA = parsePublishedAt(a.publishedAt);
+        const publishedB = parsePublishedAt(b.publishedAt);
+        if (publishedA !== publishedB) {
+          return publishedB - publishedA;
+        }
+        return a.id.localeCompare(b.id);
+      });
+      return scored.slice(0, limit);
     },
     []
   );

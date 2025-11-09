@@ -360,13 +360,6 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo, 
         <h2 className="text-3xl font-semibold text-white drop-shadow-sm">Shorts Generator</h2>
       </div>
 
-      {isDemoMode && (
-        <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100 shadow-inner shadow-amber-500/20">
-          Demo Mode reminder: we&apos;re remixing {selectedVideo?.title ? `"${selectedVideo.title}"` : 'Outdoor Boys footage'}
-          while publishing to your authenticated YouTube channel so judges can see the flow end-to-end.
-        </div>
-      )}
-
       {notification && (
         <div
           className="mb-4 rounded-2xl border border-sky-400/30 bg-sky-500/10 p-4 text-sm text-sky-100 shadow-inner shadow-sky-500/10"

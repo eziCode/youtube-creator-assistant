@@ -381,13 +381,6 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
         </div>
       </div>
 
-      {isDemoMode && (
-        <div className="rounded-2xl border border-sky-400/25 bg-sky-500/15 p-4 text-sm text-sky-100 shadow-inner shadow-sky-500/15">
-          Demo Mode is live. We&apos;re surfacing the {demoChannelTitle ?? 'Outdoor Boys'} community, while replies are posted using your
-          authenticated channel for judging. Feel free to experiment—everything is reversible.
-        </div>
-      )}
-
       <div className="space-y-2">
         {renderStatusMessage()}
         {regenerateError && <p className="text-sm text-rose-300">{regenerateError}</p>}

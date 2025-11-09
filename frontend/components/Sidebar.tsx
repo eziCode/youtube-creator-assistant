@@ -22,6 +22,20 @@ const navItems = [
   { id: 'settings', label: 'Settings', icon: <SettingsIcon /> },
 ];
 
+const getVideoThumbnailUrl = (video: Video) => {
+  const sources = ['maxres', 'standard', 'high', 'medium', 'default'];
+  for (const key of sources) {
+    const potential = video.thumbnails?.[key]?.url;
+    if (potential) {
+      return potential;
+    }
+  }
+  const arbitrary = video.thumbnails
+    ? Object.values(video.thumbnails).find((thumb) => thumb?.url)?.url
+    : null;
+  return arbitrary ?? null;
+};
+
 const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
@@ -157,26 +171,71 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
             ) : (
               <div className="space-y-3">
-                {videos.map((video) => {
+                {(selectedVideoId
+                  ? (() => {
+                      const selectedVideoEntry = videos.find((video) => video.id === selectedVideoId);
+                      if (!selectedVideoEntry) {
+                        return videos;
+                      }
+                      const others = videos.filter((video) => video.id !== selectedVideoId);
+                      return [selectedVideoEntry, ...others];
+                    })()
+                  : videos
+                ).map((video) => {
                   const isSelected = video.id === selectedVideoId;
                   const publishedLabel = formatPublishedDate(video.publishedAt);
                   const viewsLabel = formatCompactNumber(video.viewCount);
+                  const thumbnailUrl = getVideoThumbnailUrl(video);
 
                   return (
                     <button
                       key={video.id}
                       type="button"
                       onClick={() => handleVideoSelect(video)}
-                      className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                      aria-pressed={isSelected}
+                      aria-current={isSelected ? 'true' : undefined}
+                      className={`group relative flex w-full items-center gap-4 rounded-2xl border px-4 py-3 text-left transition ${
                         isSelected
-                          ? 'border-indigo-400/50 bg-indigo-500/20 text-white shadow-[0_12px_25px_rgba(79,70,229,0.35)]'
+                          ? 'border-indigo-400/50 bg-indigo-500/20 text-white shadow-[0_12px_25px_rgba(79,70,229,0.35)] ring-1 ring-indigo-300/70'
                           : 'border-white/10 bg-white/5 text-white/80 hover:border-white/20 hover:bg-white/10 hover:text-white'
                       }`}
                     >
-                      <p className="truncate text-sm font-semibold">{video.title ?? 'Untitled video'}</p>
-                      <div className="mt-1 flex items-center justify-between text-[11px] text-white/50">
-                        <span>{publishedLabel ?? 'Date unknown'}</span>
-                        {viewsLabel && <span>{viewsLabel} views</span>}
+                      <span
+                        className={`pointer-events-none absolute left-0 top-1/2 h-[70%] w-1 -translate-y-1/2 rounded-full transition ${
+                          isSelected ? 'bg-indigo-300' : 'bg-white/0 group-hover:bg-white/30'
+                        }`}
+                        aria-hidden
+                      />
+                      <div
+                        className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/40 shadow-inner shadow-black/40 transition ${
+                          isSelected ? 'ring-2 ring-indigo-300/70' : 'group-hover:border-white/20'
+                        }`}
+                      >
+                        {thumbnailUrl ? (
+                          <img
+                            src={thumbnailUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-[0.2em] text-white/40">
+                            No Art
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className={`truncate text-sm font-semibold transition ${
+                            isSelected ? 'text-white' : 'text-white/80 group-hover:text-white'
+                          }`}
+                        >
+                          {video.title ?? 'Untitled video'}
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 text-[11px] text-white/50">
+                          <span>{publishedLabel ?? 'Date unknown'}</span>
+                          {viewsLabel && <span>{viewsLabel} views</span>}
+                        </div>
                       </div>
                     </button>
                   );

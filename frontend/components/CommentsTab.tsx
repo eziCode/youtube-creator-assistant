@@ -166,6 +166,21 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
   isDemoMode = false,
   demoChannelTitle,
 }) => {
+  const getVideoThumbnailUrl = useCallback((video: Video | null) => {
+    if (!video) return null;
+    const order = ['maxres', 'standard', 'high', 'medium', 'default'];
+    for (const key of order) {
+      const url = video.thumbnails?.[key]?.url;
+      if (url) {
+        return url;
+      }
+    }
+    const fallback = video.thumbnails
+      ? Object.values(video.thumbnails).find((thumb) => thumb?.url)?.url
+      : null;
+    return fallback ?? null;
+  }, []);
+
   const [comments, setComments] = useState<CommentType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -178,6 +193,18 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
 
   const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
   const displayLimitRef = useRef<number>(randomBetween(DISPLAY_MIN, DISPLAY_MAX));
+  const compactNumberFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(undefined, {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+      }),
+    []
+  );
+  const selectedVideoThumbnail = useMemo(
+    () => getVideoThumbnailUrl(selectedVideo),
+    [getVideoThumbnailUrl, selectedVideo]
+  );
 
   const seedSuggestedReplies = useCallback(
     async (items: CommentType[], signal?: AbortSignal): Promise<CommentType[]> => {
@@ -595,6 +622,63 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
           <strong className="rounded-full bg-gradient-to-r from-indigo-500/80 to-fuchsia-500/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow-[0_12px_25px_rgba(99,102,241,0.35)]">
             {tone}
           </strong>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-inner shadow-white/10">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div
+            className={`relative h-28 w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 shadow-inner shadow-black/40 sm:h-28 sm:w-48 ${
+              selectedVideoThumbnail ? '' : 'flex items-center justify-center'
+            }`}
+          >
+            {selectedVideoThumbnail ? (
+              <img
+                src={selectedVideoThumbnail}
+                alt={selectedVideo?.title ? `Thumbnail for ${selectedVideo.title}` : 'Video thumbnail'}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-[10px] uppercase tracking-[0.3em] text-white/40">
+                <span className="text-xs">No</span>
+                <span className="text-xs">Thumbnail</span>
+              </div>
+            )}
+            {selectedVideo && (
+              <span className="absolute left-3 top-3 rounded-full border border-white/20 bg-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-white/80">
+                In Focus
+              </span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/50">Responding To</p>
+            <h3 className="text-lg font-semibold leading-snug text-white">
+              {selectedVideo?.title
+                ? selectedVideo.title
+                : isDemoMode
+                ? `${demoChannelTitle ?? 'Demo Creator'} — Sample Video`
+                : 'Select a video from the library to review its comments'}
+            </h3>
+            <div className="flex flex-wrap items-center gap-x-4 text-xs text-white/60">
+              {selectedVideo?.channelTitle && <span>{selectedVideo.channelTitle}</span>}
+              {selectedVideo?.publishedAt && (
+                <span>
+                  Published{' '}
+                  {new Date(selectedVideo.publishedAt).toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </span>
+              )}
+              {typeof selectedVideo?.viewCount === 'number' && Number.isFinite(selectedVideo.viewCount) && (
+                <span>
+                  {compactNumberFormatter.format(selectedVideo.viewCount)} views
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

@@ -223,7 +223,7 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
   const renderVideoCard = (video: GeneratedVideo) => <VideoCard key={video.id} video={video} />;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-6 text-white">
+    <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden text-white">
       <section className="flex flex-col flex-shrink-0 rounded-3xl border border-white/5 bg-slate-950/60 backdrop-blur-md shadow-[0_24px_80px_rgba(15,23,42,0.55)]">
         <div className="flex flex-1 flex-col gap-6 p-6">
             <header className="space-y-2">
@@ -339,30 +339,43 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
       </section>
 
       <section className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-3xl border border-white/5 bg-slate-950/60">
-        <header className="border-b border-white/5 bg-white/5 px-6 py-4">
+          <header className="border-b border-white/5 bg-white/5 px-6 py-4">
             <h3 className="text-lg font-semibold text-white">Generated ideas</h3>
-            <p className="text-xs text-slate-300">Thumbnails and scripts appear here once generated.</p>
+            <p className="text-xs text-slate-300">
+              Thumbnails and scripts appear here once generated.
+            </p>
           </header>
-        <div className="flex-1 overflow-y-auto px-6 py-5 pr-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="space-y-8">
-            <section className="space-y-4">
+
+          {/* Fixed scrollable region */}
+          <div
+            className="
+              flex-1 
+              overflow-y-auto 
+              px-6 py-5 pr-3
+              [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
+              max-h-[calc(100vh-300px)]
+            "
+          >
+            <div className="space-y-8">
+              <section className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="text-base font-semibold text-white/90">Video ideas</h4>
                   <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/60">
                     {videoIdeas.length} ready
                   </span>
                 </div>
+
                 {videoIdeas.length === 0 && !isLoading ? (
-                  <p className="text-sm text-white/50">No video ideas yet — click generate to get started.</p>
+                  <p className="text-sm text-white/50">
+                    No video ideas yet — click generate to get started.
+                  </p>
                 ) : (
-                  <div className="flex flex-col gap-4">
-                    {videoIdeas.map(renderVideoCard)}
-                  </div>
+                  <div className="flex flex-col gap-4">{videoIdeas.map(renderVideoCard)}</div>
                 )}
-            </section>
+              </section>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
     </div>
   );
 };

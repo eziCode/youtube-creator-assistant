@@ -16,6 +16,8 @@ interface CommentsTabProps {
   tone: Tone;
   selectedVideo: Video | null;
   user: AuthenticatedUser | null;
+  isDemoMode?: boolean;
+  demoChannelTitle?: string;
 }
 
 const QUESTION_TOKENS = ['?', 'who', 'what', 'when', 'where', 'why', 'how', 'can you'];
@@ -45,7 +47,13 @@ const deriveRisk = (sentiment: Sentiment): RiskLevel =>
 const stripHtml = (value: string | undefined | null) =>
   typeof value === 'string' ? value.replace(/<[^>]*>/g, '') : '';
 
-const CommentsTab: React.FC<CommentsTabProps> = ({ tone, selectedVideo, user }) => {
+const CommentsTab: React.FC<CommentsTabProps> = ({
+  tone,
+  selectedVideo,
+  user,
+  isDemoMode = false,
+  demoChannelTitle,
+}) => {
   const [comments, setComments] = useState<CommentType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -352,6 +360,13 @@ const CommentsTab: React.FC<CommentsTabProps> = ({ tone, selectedVideo, user }) 
           </strong>
         </div>
       </div>
+
+      {isDemoMode && (
+        <div className="rounded-2xl border border-sky-400/25 bg-sky-500/15 p-4 text-sm text-sky-100 shadow-inner shadow-sky-500/15">
+          Demo Mode is live. We&apos;re surfacing the {demoChannelTitle ?? 'Outdoor Boys'} community, while replies are posted using your
+          authenticated channel for judging. Feel free to experiment—everything is reversible.
+        </div>
+      )}
 
       <div className="space-y-2">
         {renderStatusMessage()}

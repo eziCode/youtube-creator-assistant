@@ -17,6 +17,7 @@ import Card from "./Card";
 
 interface ShortsGeneratorTabProps {
   selectedVideo: Video | null;
+  isDemoMode?: boolean;
 }
 
 const DOWNLOAD_STATUS_LABELS: Record<ShortDownloadStatus, string> = {
@@ -42,7 +43,7 @@ const formatSeconds = (value: number) => {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 };
 
-const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }) => {
+const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo, isDemoMode = false }) => {
   const [shorts, setShorts] = useState<ShortClip[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [publishingIndex, setPublishingIndex] = useState<number | null>(null);
@@ -358,6 +359,13 @@ const ShortsGeneratorTab: React.FC<ShortsGeneratorTabProps> = ({ selectedVideo }
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-3xl font-semibold text-white drop-shadow-sm">Shorts Generator</h2>
       </div>
+
+      {isDemoMode && (
+        <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100 shadow-inner shadow-amber-500/20">
+          Demo Mode reminder: we&apos;re remixing {selectedVideo?.title ? `"${selectedVideo.title}"` : 'Outdoor Boys footage'}
+          while publishing to your authenticated YouTube channel so judges can see the flow end-to-end.
+        </div>
+      )}
 
       {notification && (
         <div

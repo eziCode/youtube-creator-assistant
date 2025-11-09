@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuthenticatedUser, ChannelAnalyticsOverview, Tab, Tone, Video, VideoAnalyticsOverview } from '../types';
 import { API_BASE_URL } from '../constants';
 import Sidebar from './Sidebar';
@@ -7,13 +7,30 @@ import CommentsTab from './CommentsTab';
 import ShortsGeneratorTab from './ShortsGeneratorTab';
 import SettingsTab from './SettingsTab';
 import VideoIdeasGeneratorTab from "./VideoIdeasGeneratorTab";
+import {
+  fetchDemoVideos,
+  fetchDemoChannelAnalytics,
+  fetchDemoVideoAnalytics,
+  fetchDemoChannel,
+} from '../services/demoService';
+
+const DEMO_CHANNEL_ID = 'UCfpCQ89W9wjkHc8J_6eTbBg';
 
 interface DashboardProps {
   user: AuthenticatedUser | null;
   onLogout: () => void;
+  isDemoMode?: boolean;
+  demoChannel?: unknown;
+  onUpdateDemoChannel?: (channel: unknown) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
+const Dashboard: React.FC<DashboardProps> = ({
+  user,
+  onLogout,
+  isDemoMode = false,
+  demoChannel,
+  onUpdateDemoChannel,
+}) => {
   const [activeTab, setActiveTab] = useState<Tab>('analytics');
   const [videos, setVideos] = useState<Video[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
@@ -31,8 +48,24 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [customStartDate, setCustomStartDate] = useState<string | undefined>(undefined);
   const [customEndDate, setCustomEndDate] = useState<string | undefined>(undefined);
   const [channelStartDate, setChannelStartDate] = useState<string | undefined>(undefined);
+  const [videoSearchTerm, setVideoSearchTerm] = useState<string>('');
+  const videoSearchTermRef = useRef<string>('');
+  const [videoNextPageToken, setVideoNextPageToken] = useState<string | null>(null);
+  const [isLoadingMoreVideos, setIsLoadingMoreVideos] = useState<boolean>(false);
+  const videoFetchControllerRef = useRef<AbortController | null>(null);
 
   const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
+  const demoChannelTitle = useMemo(() => {
+    if (!demoChannel || typeof demoChannel !== 'object') {
+      return 'Outdoor Boys';
+    }
+    const maybeTitle = (demoChannel as { title?: unknown }).title;
+    return typeof maybeTitle === 'string' && maybeTitle.length > 0 ? maybeTitle : 'Outdoor Boys';
+  }, [demoChannel]);
+
+  useEffect(() => {
+    videoSearchTermRef.current = videoSearchTerm;
+  }, [videoSearchTerm]);
   const toDateOnly = useCallback((iso?: string | null) => {
     if (!iso) return undefined;
     const parsed = new Date(iso);
@@ -43,96 +76,296 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     return `${year}-${month}-${day}`;
   }, []);
 
-  useEffect(() => {
-    if (!user?.channelId) {
-      setVideos([]);
-      setSelectedVideo(null);
-      setIsLoadingVideos(false);
-      setVideoError(user ? 'No YouTube channel connected to this account yet.' : null);
-      setAnalytics(null);
-      setIsLoadingAnalytics(false);
-      setAnalyticsError(user ? 'No analytics available until a channel is connected.' : null);
-      setVideoAnalytics(null);
-      setIsLoadingVideoAnalytics(false);
-      setVideoAnalyticsError(user ? 'Select a channel video to analyze once connected.' : null);
-      setChannelStartDate(undefined);
-      return;
-    }
+  const activeChannelId = useMemo(
+    () => (isDemoMode ? DEMO_CHANNEL_ID : user?.channelId ?? null),
+    [isDemoMode, user?.channelId]
+  );
 
-    const controller = new AbortController();
+  const loadVideos = useCallback(
+    async ({
+      reset = false,
+      pageToken = null,
+      searchOverride,
+    }: {
+      reset?: boolean;
+      pageToken?: string | null;
+      searchOverride?: string;
+    } = {}) => {
+      if (!activeChannelId) {
+        return;
+      }
 
-    const fetchVideos = async () => {
-      setIsLoadingVideos(true);
-      setVideoError(null);
+      if (!isDemoMode && !reset) {
+        return;
+      }
+
+      const controller = new AbortController();
+      if (videoFetchControllerRef.current) {
+        videoFetchControllerRef.current.abort();
+      }
+      videoFetchControllerRef.current = controller;
+
+      if (reset) {
+        setIsLoadingVideos(true);
+        setVideoNextPageToken(null);
+        setVideoError(null);
+      } else {
+        setIsLoadingMoreVideos(true);
+      }
 
       try {
-        const url = new URL(`${apiBaseUrl}/dashboard/videos`);
-        url.searchParams.set('channelId', user.channelId);
-        if (useSampleData) url.searchParams.set('useSample', '1');
+        let fetchedVideos: Video[] = [];
+        let nextToken: string | null = null;
 
-        const response = await fetch(url.toString(), {
-          credentials: 'include',
-          signal: controller.signal,
-        });
+        if (isDemoMode) {
+          const searchTerm =
+            typeof searchOverride === 'string' ? searchOverride : videoSearchTermRef.current;
+          const trimmedSearch = searchTerm.trim();
+          const result = await fetchDemoVideos({
+            pageSize: 25,
+            source: trimmedSearch ? 'search' : 'uploads',
+            query: trimmedSearch || undefined,
+            pageToken: pageToken ?? undefined,
+            signal: controller.signal,
+          });
 
-        const payload = await response.json().catch(() => null);
+          fetchedVideos = Array.isArray(result?.videos) ? result.videos : [];
+          nextToken = result?.nextPageToken ?? null;
+        } else {
+          const url = new URL(`${apiBaseUrl}/dashboard/videos`);
+          url.searchParams.set('channelId', activeChannelId);
+          if (useSampleData) url.searchParams.set('useSample', '1');
 
-        if (!response.ok) {
-          const message =
-            (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string')
-              ? payload.error
-              : `Failed to load videos (status ${response.status})`;
-          throw new Error(message);
+          const response = await fetch(url.toString(), {
+            credentials: 'include',
+            signal: controller.signal,
+          });
+
+          const payload = await response.json().catch(() => null);
+
+          if (!response.ok) {
+            const message =
+              (payload &&
+                typeof payload === 'object' &&
+                'error' in payload &&
+                typeof payload.error === 'string')
+                ? payload.error
+                : `Failed to load videos (status ${response.status})`;
+            throw new Error(message);
+          }
+
+          fetchedVideos = Array.isArray(payload?.videos) ? payload.videos : [];
+          nextToken = null;
         }
 
-        const fetchedVideos: Video[] = Array.isArray(payload?.videos) ? payload.videos : [];
-        setVideos(fetchedVideos);
-        const earliestPublished = fetchedVideos.reduce<string | undefined>((earliest, video) => {
-          const dateOnly = toDateOnly(video?.publishedAt);
-          if (!dateOnly) return earliest;
-          if (!earliest || dateOnly < earliest) {
-            return dateOnly;
-          }
-          return earliest;
-        }, undefined);
-        setChannelStartDate(earliestPublished);
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        let combinedVideos: Video[] = [];
+        let computedStartDate: string | undefined;
+
+        setVideos((prev) => {
+          const base = reset ? [] : prev;
+          const map = new Map<string, Video>();
+          base.forEach((video) => {
+            if (video?.id) {
+              map.set(video.id, video);
+            }
+          });
+          fetchedVideos.forEach((video) => {
+            if (video?.id) {
+              map.set(video.id, video);
+            }
+          });
+          combinedVideos = Array.from(map.values());
+          computedStartDate = combinedVideos.reduce<string | undefined>((earliest, video) => {
+            const dateOnly = toDateOnly(video?.publishedAt);
+            if (!dateOnly) return earliest;
+            if (!earliest || dateOnly < earliest) {
+              return dateOnly;
+            }
+            return earliest;
+          }, undefined);
+          return combinedVideos;
+        });
+
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setChannelStartDate(computedStartDate);
         setSelectedVideo((prev) => {
-          if (!fetchedVideos.length) {
+          if (!combinedVideos.length) {
             return null;
           }
           if (prev) {
-            const existing = fetchedVideos.find((video) => video.id === prev.id);
+            const existing = combinedVideos.find((video) => video.id === prev.id);
             if (existing) {
               return existing;
             }
           }
-          return fetchedVideos[0];
+          return combinedVideos[0];
         });
+        setVideoNextPageToken(isDemoMode ? nextToken : null);
+        setVideoError(null);
       } catch (err) {
         if (controller.signal.aborted) {
           return;
         }
         console.error('[dashboard] failed to load videos', err);
-        setVideos([]);
-        setSelectedVideo(null);
+        if (reset) {
+          setVideos([]);
+          setSelectedVideo(null);
+          setChannelStartDate(undefined);
+        }
         setVideoError(err instanceof Error ? err.message : 'Failed to load videos');
-        setChannelStartDate(undefined);
+        setVideoNextPageToken(null);
       } finally {
         if (!controller.signal.aborted) {
-          setIsLoadingVideos(false);
+          if (reset) {
+            setIsLoadingVideos(false);
+          } else {
+            setIsLoadingMoreVideos(false);
+          }
         }
+
+        if (videoFetchControllerRef.current === controller) {
+          videoFetchControllerRef.current = null;
+        }
+      }
+    },
+    [activeChannelId, apiBaseUrl, isDemoMode, toDateOnly, useSampleData]
+  );
+
+  const displayedVideos = useMemo(() => {
+    if (!isDemoMode) {
+      const term = videoSearchTerm.trim().toLowerCase();
+      if (!term) {
+        return videos;
+      }
+      return videos.filter((video) =>
+        (video.title ?? '').toLowerCase().includes(term)
+      );
+    }
+    return videos;
+  }, [videos, isDemoMode, videoSearchTerm]);
+
+  useEffect(() => {
+    if (!isDemoMode || typeof onUpdateDemoChannel !== 'function') {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadDemoChannel = async () => {
+      try {
+        const payload = await fetchDemoChannel();
+        if (!cancelled) {
+          onUpdateDemoChannel(payload?.channel ?? null);
+        }
+      } catch (error) {
+        console.error('[dashboard] failed to load demo channel profile', error);
       }
     };
 
-    fetchVideos();
+    loadDemoChannel();
 
     return () => {
-      controller.abort();
+      cancelled = true;
     };
-  }, [apiBaseUrl, user?.channelId, useSampleData]);
+  }, [isDemoMode, onUpdateDemoChannel]);
 
   useEffect(() => {
-    if (!user?.channelId) {
+    return () => {
+      videoFetchControllerRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    setSelectedVideo((prev) => {
+      if (!displayedVideos.length) {
+        return null;
+      }
+      if (prev) {
+        const existing = displayedVideos.find((video) => video.id === prev.id);
+        if (existing) {
+          return existing;
+        }
+      }
+      return displayedVideos[0];
+    });
+  }, [displayedVideos]);
+
+  useEffect(() => {
+    if (!activeChannelId) {
+      setVideos([]);
+      setSelectedVideo(null);
+      setIsLoadingVideos(false);
+      setIsLoadingMoreVideos(false);
+      setVideoNextPageToken(null);
+      setVideoError(
+        isDemoMode
+          ? 'Demo channel unavailable. Please retry demo mode.'
+          : user
+          ? 'No YouTube channel connected to this account yet.'
+          : null
+      );
+      setAnalytics(null);
+      setIsLoadingAnalytics(false);
+      setAnalyticsError(
+        isDemoMode
+          ? 'Demo analytics unavailable until the session is refreshed.'
+          : user
+          ? 'No analytics available until a channel is connected.'
+          : null
+      );
+      setVideoAnalytics(null);
+      setIsLoadingVideoAnalytics(false);
+      setVideoAnalyticsError(
+        isDemoMode
+          ? 'Demo video insights unavailable.'
+          : user
+          ? 'Select a channel video to analyze once connected.'
+          : null
+      );
+      setChannelStartDate(undefined);
+      return;
+    }
+
+    void loadVideos({ reset: true });
+  }, [activeChannelId, isDemoMode, loadVideos, user, useSampleData]);
+
+  const handleVideoSearch = useCallback(
+    (query: string) => {
+      const trimmed = query.trim();
+      setVideoSearchTerm(trimmed);
+      if (isDemoMode) {
+        void loadVideos({ reset: true, searchOverride: trimmed });
+      }
+    },
+    [isDemoMode, loadVideos]
+  );
+
+  const handleClearVideoSearch = useCallback(() => {
+    if (!videoSearchTerm) {
+      return;
+    }
+    setVideoSearchTerm('');
+    if (isDemoMode) {
+      void loadVideos({ reset: true, searchOverride: '' });
+    }
+  }, [isDemoMode, loadVideos, videoSearchTerm]);
+
+  const handleLoadMoreVideos = useCallback(() => {
+    if (!videoNextPageToken) {
+      return;
+    }
+    void loadVideos({ pageToken: videoNextPageToken });
+  }, [loadVideos, videoNextPageToken]);
+
+  useEffect(() => {
+    if (!activeChannelId) {
       setAnalytics(null);
       setIsLoadingAnalytics(false);
       return;
@@ -147,11 +380,32 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
     const controller = new AbortController();
 
+    const computeRangeFromCustom = () => {
+      if (!customStartDate || !customEndDate) return undefined;
+      const start = new Date(`${customStartDate}T00:00:00Z`);
+      const end = new Date(`${customEndDate}T00:00:00Z`);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        return undefined;
+      }
+      const diffDays = Math.floor((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+      return diffDays > 0 ? diffDays : undefined;
+    };
+
+    const requestedRangeDays = isCustomRange
+      ? computeRangeFromCustom() ?? analyticsRangeDays
+      : analyticsRangeDays;
+
     const fetchAnalytics = async () => {
       setIsLoadingAnalytics(true);
       setAnalyticsError(null);
 
       try {
+        if (isDemoMode) {
+          const result = await fetchDemoChannelAnalytics(requestedRangeDays, controller.signal);
+          setAnalytics(result?.analytics ?? null);
+          return;
+        }
+
         const params = new URLSearchParams();
         if (isCustomRange && customStartDate && customEndDate) {
           params.set('startDate', customStartDate);
@@ -194,14 +448,23 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     return () => {
       controller.abort();
     };
-  }, [apiBaseUrl, user?.channelId, analyticsRangeDays, customStartDate, customEndDate]);
+  }, [
+    apiBaseUrl,
+    activeChannelId,
+    isDemoMode,
+    analyticsRangeDays,
+    customStartDate,
+    customEndDate,
+  ]);
 
   useEffect(() => {
-    if (!user?.channelId || !selectedVideo?.id) {
+    if (!selectedVideo?.id || !activeChannelId) {
       setVideoAnalytics(null);
       setIsLoadingVideoAnalytics(false);
       setVideoAnalyticsError(
-        user?.channelId
+        isDemoMode
+          ? 'Select a video from the Outdoor Boys library to view demo analytics.'
+          : user?.channelId
           ? 'Select a video to explore detailed analytics.'
           : 'Connect a channel to analyze individual videos.'
       );
@@ -215,11 +478,36 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
     const controller = new AbortController();
 
+    const computeRangeFromCustom = () => {
+      if (!customStartDate || !customEndDate) return undefined;
+      const start = new Date(`${customStartDate}T00:00:00Z`);
+      const end = new Date(`${customEndDate}T00:00:00Z`);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        return undefined;
+      }
+      const diffDays = Math.floor((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+      return diffDays > 0 ? diffDays : undefined;
+    };
+
+    const requestedRangeDays = isCustomRange
+      ? computeRangeFromCustom() ?? analyticsRangeDays
+      : analyticsRangeDays;
+
     const fetchVideoAnalytics = async () => {
       setIsLoadingVideoAnalytics(true);
       setVideoAnalyticsError(null);
 
       try {
+        if (isDemoMode) {
+          const result = await fetchDemoVideoAnalytics(
+            selectedVideo.id,
+            requestedRangeDays,
+            controller.signal
+          );
+          setVideoAnalytics(result?.analytics ?? null);
+          return;
+        }
+
         const params = new URLSearchParams({
           videoId: selectedVideo.id,
         });
@@ -265,7 +553,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     return () => {
       controller.abort();
     };
-  }, [apiBaseUrl, user?.channelId, selectedVideo?.id, analyticsRangeDays, customStartDate, customEndDate]);
+  }, [
+    apiBaseUrl,
+    activeChannelId,
+    isDemoMode,
+    selectedVideo?.id,
+    analyticsRangeDays,
+    customStartDate,
+    customEndDate,
+  ]);
 
   const handleChangeRangeDays = useCallback((days: number) => {
     setAnalyticsRangeDays(days);
@@ -285,7 +581,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       case 'analytics':
         return (
           <AnalyticsTab
-            videos={videos}
+            videos={displayedVideos}
             analytics={analytics}
             selectedVideo={selectedVideo}
             videoAnalytics={videoAnalytics}
@@ -301,6 +597,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             customEndDate={customEndDate}
             onChangeCustomDateRange={handleChangeCustomDateRange}
             channelStartDate={channelStartDate}
+            isDemoMode={isDemoMode}
+            demoChannelTitle={demoChannelTitle}
           />
         );
       case 'comments':
@@ -309,10 +607,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             tone={tone}
             selectedVideo={selectedVideo}
             user={user}
+            isDemoMode={isDemoMode}
+            demoChannelTitle={demoChannelTitle}
           />
         );
       case 'shorts':
-        return <ShortsGeneratorTab selectedVideo={selectedVideo} />;
+        return <ShortsGeneratorTab selectedVideo={selectedVideo} isDemoMode={isDemoMode} />;
       case 'settings':
         return <SettingsTab tone={tone} setTone={setTone} />;
       case 'videoIdeas':
@@ -385,9 +685,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             setActiveTab={setActiveTab}
             selectedVideo={selectedVideo}
             setSelectedVideo={setSelectedVideo}
-            videos={videos}
+            videos={displayedVideos}
             isLoading={isLoadingVideos}
+            isLoadingMore={isLoadingMoreVideos}
             error={videoError}
+            onSearch={handleVideoSearch}
+            onClearSearch={handleClearVideoSearch}
+            searchTerm={videoSearchTerm}
+            onLoadMoreVideos={handleLoadMoreVideos}
+            hasMoreVideos={Boolean(videoNextPageToken)}
+            isDemoMode={isDemoMode}
           />
 
           <main>

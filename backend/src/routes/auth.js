@@ -230,6 +230,7 @@ router.get("/session", (req, res) => {
     return res.status(200).json({
         authenticated: true,
         user: req.session.user,
+        demoMode: Boolean(req.session.demoMode),
     });
 });
 
@@ -254,6 +255,7 @@ router.post("/logout", async (req, res) => {
 
     req.session.tokens = undefined;
     req.session.user = undefined;
+    req.session.demoMode = undefined;
 
     req.session.destroy((err) => {
         if (err) {

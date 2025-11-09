@@ -5,8 +5,12 @@ import path from "path";
 import { getOAuth2Client, getChannelVideos, getTrendingVideos } from "../../src/models/youtube.js";
 import { generateVideoContent } from "../../src/models/llm.js";
 import { generateThumbnail } from "../../src/models/thumbnail.js";
+import crypto from "crypto";
 
 const router = express.Router();
+
+// In-memory cache for thumbnails (key: thumbnailId, value: { dataUri, ready })
+const thumbnailCache = new Map();
 
 // Ensure CORS headers for this route in case global CORS was not applied.
 router.use((req, res, next) => {
@@ -171,83 +175,83 @@ router.post("/", async (req, res) => {
             return res.status(500).json({ error: "Failed to generate LLM content", details: err?.message || String(err) });
         }
 
-        // If LLM returned an object with videos (normalized in llm.js), generate thumbnails per idea
+        // If LLM returned an object with videos (normalized in llm.js), return videos immediately and generate thumbnails async
         if (llmOutput && typeof llmOutput === "object" && Array.isArray(llmOutput.videos)) {
             const videos = [];
 
+            // Return videos immediately with thumbnailId (thumbnails will be generated async)
             for (let i = 0; i < llmOutput.videos.length; i++) {
                 const item = llmOutput.videos[i];
                 const title = item.title || `Generated Video ${i + 1}`;
                 const script = item.script || "";
                 const thumbPrompt = item.thumbnail_prompt || "Creative YouTube thumbnail";
+                const thumbnailId = crypto.randomBytes(16).toString('hex');
 
-                // Generate thumbnail to a temp file, then convert to data URI for frontend
-                const tmpPath = path.join(os.tmpdir(), `yca_thumb_${Date.now()}_${i}.png`);
-                let thumbDataUri = null;
-                let thumbFallback = false;
+                // Initialize cache entry as loading
+                thumbnailCache.set(thumbnailId, { ready: false, dataUri: null, fallback: false });
 
-                try {
-                    await generateThumbnail(thumbPrompt, tmpPath, uploadedImagePath);
-
-                    if (fs.existsSync(tmpPath)) {
-                        const buff = fs.readFileSync(tmpPath);
-                        // Detect if file is an SVG (text) and set appropriate MIME type
-                        let mime = 'image/png';
-                        try {
-                            const asText = buff.toString('utf8').trim();
-                            if (asText.startsWith('<svg') || asText.includes('<svg')) {
-                                mime = 'image/svg+xml';
-                            }
-                        } catch (e) {
-                            // binary buffer; leave as png
-                        }
-                        thumbDataUri = `data:${mime};base64,${buff.toString("base64")}`;
-                        // remove temp file
-                        try { fs.unlinkSync(tmpPath); } catch (e) { /* ignore */ }
-                    } else {
-                        throw new Error("Thumbnail file not created");
-                    }
-                } catch (err) {
-                    console.error(`Error generating thumbnail for idea ${i + 1}:`, err?.message || err);
-                    // Construct a nicer SVG fallback. If an uploaded image exists, use
-                    // it prominently; otherwise render a styled prompt card.
-                    let svg;
+                // Generate thumbnail asynchronously
+                (async () => {
+                    const tmpPath = path.join(os.tmpdir(), `yca_thumb_${Date.now()}_${i}_${thumbnailId}.png`);
                     try {
-                        const uploadedB64 = uploadedImagePath && fs.existsSync(uploadedImagePath) ? fs.readFileSync(uploadedImagePath).toString('base64') : null;
-                        if (uploadedB64) {
-                            svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='675' viewBox='0 0 1200 675'>` +
-                                `<defs><linearGradient id='g' x1='0' x2='1'><stop offset='0' stop-color='#0f172a'/><stop offset='1' stop-color='#111827'/></linearGradient></defs>` +
-                                `<rect width='100%' height='100%' fill='url(#g)'/>` +
-                                `<image href='data:image/*;base64,${uploadedB64}' x='50' y='40' width='700' height='595' preserveAspectRatio='xMidYMid slice'/>` +
-                                `<rect x='50' y='460' width='700' height='175' fill='rgba(0,0,0,0.45)'/>` +
-                                `<text x='80' y='520' fill='#fff' font-size='44' font-family='sans-serif' font-weight='700'>${escapeXml(thumbPrompt).slice(0,80)}</text>` +
-                                `<text x='80' y='570' fill='#d1d5db' font-size='28' font-family='sans-serif'>${escapeXml(thumbPrompt).slice(80,200)}</text>` +
-                                `</svg>`;
+                        await generateThumbnail(thumbPrompt, tmpPath, uploadedImagePath);
+
+                        if (fs.existsSync(tmpPath)) {
+                            const buff = fs.readFileSync(tmpPath);
+                            let mime = 'image/png';
+                            try {
+                                const asText = buff.toString('utf8').trim();
+                                if (asText.startsWith('<svg') || asText.includes('<svg')) {
+                                    mime = 'image/svg+xml';
+                                }
+                            } catch (e) {}
+                            const thumbDataUri = `data:${mime};base64,${buff.toString("base64")}`;
+                            thumbnailCache.set(thumbnailId, { ready: true, dataUri: thumbDataUri, fallback: false });
+                            try { fs.unlinkSync(tmpPath); } catch (e) { /* ignore */ }
                         } else {
-                            svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='675' viewBox='0 0 1200 675'>` +
-                                `<defs><linearGradient id='g' x1='0' x2='1'><stop offset='0' stop-color='#111827'/><stop offset='1' stop-color='#0b1220'/></linearGradient></defs>` +
-                                `<rect width='100%' height='100%' fill='url(#g)'/>` +
-                                `<text x='50%' y='38%' fill='#fff' font-size='48' font-family='sans-serif' font-weight='700' text-anchor='middle'>${escapeXml(thumbPrompt).slice(0,80)}</text>` +
-                                `<text x='50%' y='50%' fill='#9ca3af' font-size='28' font-family='sans-serif' text-anchor='middle'>${escapeXml(thumbPrompt).slice(80,200)}</text>` +
-                                `</svg>`;
+                            throw new Error("Thumbnail file not created");
                         }
-                        thumbDataUri = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
-                        thumbFallback = true;
-                    } catch (svgErr) {
-                        console.error('Failed to create SVG fallback:', svgErr);
-                        const fallback = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='675' viewBox='0 0 1200 675'><rect width='100%' height='100%' fill='#111827'/></svg>`;
-                        thumbDataUri = `data:image/svg+xml;base64,${Buffer.from(fallback).toString('base64')}`;
-                        thumbFallback = true;
+                    } catch (err) {
+                        console.error(`Error generating thumbnail for idea ${i + 1}:`, err?.message || err);
+                        // Create SVG fallback
+                        let svg;
+                        try {
+                            const uploadedB64 = uploadedImagePath && fs.existsSync(uploadedImagePath) ? fs.readFileSync(uploadedImagePath).toString('base64') : null;
+                            if (uploadedB64) {
+                                svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='675' viewBox='0 0 1200 675'>` +
+                                    `<defs><linearGradient id='g' x1='0' x2='1'><stop offset='0' stop-color='#0f172a'/><stop offset='1' stop-color='#111827'/></linearGradient></defs>` +
+                                    `<rect width='100%' height='100%' fill='url(#g)'/>` +
+                                    `<image href='data:image/*;base64,${uploadedB64}' x='50' y='40' width='700' height='595' preserveAspectRatio='xMidYMid slice'/>` +
+                                    `<rect x='50' y='460' width='700' height='175' fill='rgba(0,0,0,0.45)'/>` +
+                                    `<text x='80' y='520' fill='#fff' font-size='44' font-family='sans-serif' font-weight='700'>${escapeXml(thumbPrompt).slice(0,80)}</text>` +
+                                    `<text x='80' y='570' fill='#d1d5db' font-size='28' font-family='sans-serif'>${escapeXml(thumbPrompt).slice(80,200)}</text>` +
+                                    `</svg>`;
+                            } else {
+                                svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='675' viewBox='0 0 1200 675'>` +
+                                    `<defs><linearGradient id='g' x1='0' x2='1'><stop offset='0' stop-color='#111827'/><stop offset='1' stop-color='#0b1220'/></linearGradient></defs>` +
+                                    `<rect width='100%' height='100%' fill='url(#g)'/>` +
+                                    `<text x='50%' y='38%' fill='#fff' font-size='48' font-family='sans-serif' font-weight='700' text-anchor='middle'>${escapeXml(thumbPrompt).slice(0,80)}</text>` +
+                                    `<text x='50%' y='50%' fill='#9ca3af' font-size='28' font-family='sans-serif' text-anchor='middle'>${escapeXml(thumbPrompt).slice(80,200)}</text>` +
+                                    `</svg>`;
+                            }
+                            const thumbDataUri = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+                            thumbnailCache.set(thumbnailId, { ready: true, dataUri: thumbDataUri, fallback: true });
+                        } catch (svgErr) {
+                            console.error('Failed to create SVG fallback:', svgErr);
+                            const fallback = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='675' viewBox='0 0 1200 675'><rect width='100%' height='100%' fill='#111827'/></svg>`;
+                            const thumbDataUri = `data:image/svg+xml;base64,${Buffer.from(fallback).toString('base64')}`;
+                            thumbnailCache.set(thumbnailId, { ready: true, dataUri: thumbDataUri, fallback: true });
+                        }
                     }
-                }
+                })();
 
                 videos.push({
                     id: item.id || `generated-${i + 1}`,
                     title,
                     script,
                     thumbnailPrompt: thumbPrompt,
-                    thumbnailPath: thumbDataUri,
-                    thumbnailFallback: thumbFallback,
+                    thumbnailId: thumbnailId,
+                    thumbnailPath: null, // Will be fetched via /thumbnail/:id
                 });
             }
 
@@ -405,4 +409,38 @@ router.post("/", async (req, res) => {
         res.status(500).json({ error: "Failed to generate content", details: err.message });
     }
 });
+
+// Endpoint to fetch thumbnail by ID
+router.get("/thumbnail/:id", (req, res) => {
+    const { id } = req.params;
+    const cached = thumbnailCache.get(id);
+    
+    if (!cached) {
+        return res.status(404).json({ error: "Thumbnail not found" });
+    }
+    
+    if (!cached.ready) {
+        return res.json({ ready: false });
+    }
+    
+    return res.json({ 
+        ready: true, 
+        dataUri: cached.dataUri,
+        fallback: cached.fallback 
+    });
+});
+
+function escapeXml(unsafe) {
+    return (unsafe || '').replace(/[<>&"']/g, function (c) {
+        switch (c) {
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '&': return '&amp;';
+            case '"': return '&quot;';
+            case "'": return '&apos;';
+            default: return c;
+        }
+    });
+}
+
 export default router;

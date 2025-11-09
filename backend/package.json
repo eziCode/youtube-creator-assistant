@@ -24,8 +24,9 @@
     "ffmpeg-installer": "^1.0.2",
     "googleapis": "^165.0.0",
     "mongoose": "^8.19.3",
+    "multer": "^1.4.5-lts.1",
     "openai": "^6.8.1",
-  "multer": "^1.4.5-lts.1",
+    "sharp": "^0.34.5",
     "ytdl-core": "npm:@distube/ytdl-core@^4.16.12"
   },
   "devDependencies": {

@@ -52,13 +52,25 @@ const DISPLAY_MAX = 8;
 
 const DEMO_DISPLAY_COUNT = 6;
 
-const DEMO_CONVERSATIONS: Array<{ id: string; viewer: string; text: string; response: string | null; autoReplied: boolean }> = [
+const DEMO_CONVERSATIONS: Array<{
+  id: string;
+  viewer: string;
+  text: string;
+  response: string | null;
+  autoReplied: boolean;
+  sentiment: Sentiment;
+  risk: RiskLevel;
+  toneLabel: string;
+}> = [
   {
     id: 'demo-convo-1',
     viewer: 'Avery',
     text: 'This breakdown is exactly what I needed today.',
     response: 'Awesome!',
     autoReplied: true,
+    sentiment: 'positive',
+    risk: 'low',
+    toneLabel: 'Friendly',
   },
   {
     id: 'demo-convo-2',
@@ -66,6 +78,9 @@ const DEMO_CONVERSATIONS: Array<{ id: string; viewer: string; text: string; resp
     text: 'Can you clarify how you set up the lighting?',
     response: 'Yeah, it was super simple. I just used a few lights and a reflector.',
     autoReplied: false,
+    sentiment: 'question',
+    risk: 'high',
+    toneLabel: 'Question',
   },
   {
     id: 'demo-convo-3',
@@ -73,6 +88,9 @@ const DEMO_CONVERSATIONS: Array<{ id: string; viewer: string; text: string; resp
     text: 'Your energy always brightens my feed!',
     response: 'Thanks!',
     autoReplied: false,
+    sentiment: 'positive',
+    risk: 'low',
+    toneLabel: 'Positive',
   },
   {
     id: 'demo-convo-4',
@@ -80,6 +98,9 @@ const DEMO_CONVERSATIONS: Array<{ id: string; viewer: string; text: string; resp
     text: 'Any chance you’ll cover monetization next?',
     response: 'Yeah, I\'ll definitely cover that in a future video.',
     autoReplied: false,
+    sentiment: 'question',
+    risk: 'high',
+    toneLabel: 'Question',
   },
   {
     id: 'demo-convo-5',
@@ -87,6 +108,9 @@ const DEMO_CONVERSATIONS: Array<{ id: string; viewer: string; text: string; resp
     text: 'I tried this trick and it totally worked!',
     response: 'Awesome!',
     autoReplied: false,
+    sentiment: 'positive',
+    risk: 'low',
+    toneLabel: 'Positive',
   },
 ];
 
@@ -124,8 +148,8 @@ const parsePublishedAt = (value?: string | null) => {
 
 const buildDemoComments = (): CommentType[] =>
   DEMO_CONVERSATIONS.map((item, index) => {
-    const sentiment = inferSentiment(item.text);
-    const risk = deriveRisk(sentiment);
+    const sentiment = item.sentiment;
+    const risk = item.risk;
     const publishedAt = new Date(Date.now() - index * 45 * 60 * 1000).toISOString();
     const hasResponseText = typeof item.response === 'string' && item.response.length > 0;
     const isAutoReplied = item.autoReplied === true;
@@ -139,6 +163,7 @@ const buildDemoComments = (): CommentType[] =>
       },
       sentiment,
       risk,
+      toneLabel: item.toneLabel,
       suggestedReply: hasResponseText ? item.response ?? '' : '',
       status: isAutoReplied ? 'auto-replied' : 'pending',
       autoReplyId: isAutoReplied ? `demo-reply-${item.id}` : null,
@@ -720,7 +745,9 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
                         </span>
                         <span className="inline-flex items-center gap-1 rounded-full border border-sky-400/40 bg-sky-500/10 px-3 py-1 text-sky-100 shadow-inner shadow-sky-500/25">
                           <span className="text-sky-300/90">Tone</span>
-                          <span className="capitalize text-white">{comment.sentiment}</span>
+                          <span className="capitalize text-white">
+                            {comment.toneLabel ?? comment.sentiment ?? 'Unknown'}
+                          </span>
                         </span>
                       </div>
                     </div>
@@ -775,7 +802,9 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
                         </span>
                         <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-white/70 shadow-inner shadow-white/10">
                           <span className="text-indigo-200/90">Tone</span>
-                          <span className="capitalize text-white/90">{comment.sentiment}</span>
+                          <span className="capitalize text-white/90">
+                            {comment.toneLabel ?? comment.sentiment ?? 'Unknown'}
+                          </span>
                         </span>
                       </div>
                     </div>

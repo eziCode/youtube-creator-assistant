@@ -60,6 +60,7 @@ export interface Comment {
   risk?: RiskLevel;
   suggestedReply?: string;
   status?: CommentStatus;
+  toneLabel?: string | null;
 }
 
 export interface ShortClip {

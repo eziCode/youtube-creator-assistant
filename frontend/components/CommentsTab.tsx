@@ -50,50 +50,44 @@ const stripHtml = (value: string | undefined | null) =>
 const DISPLAY_MIN = 4;
 const DISPLAY_MAX = 8;
 
-const DEMO_VIEWERS = [
-  'Avery',
-  'Jordan',
-  'Harper',
-  'Sky',
-  'Kai',
-  'Rowan',
-  'Ember',
-  'Nova',
-  'Indie',
-  'Sage',
-  'Mika',
-  'Phoenix',
-  'Luca',
-  'Remy',
-  'Quinn',
-  'Holland',
-  'Blair',
-  'Sloane',
-  'River',
-  'Jules',
-];
+const DEMO_DISPLAY_COUNT = 6;
 
-const DEMO_COMMENTS = [
-  'This breakdown is exactly what I needed today.',
-  'Can you clarify how you set up the lighting?',
-  'Your energy always brightens my feed!',
-  'The pace felt a little fast in the second half.',
-  'I never miss these uploads—keep them coming.',
-  'Any chance you’ll cover monetization next?',
-  'This tip saved me so much time.',
-  'I laughed so hard at the intro gag 😂',
-  'What mic are you using in this video?',
-  'I tried this trick and it totally worked!',
-  'Could you share the template you mentioned?',
-  'Love seeing behind-the-scenes like this.',
-  'This is the clearest explanation I’ve seen.',
-  'Please do more breakdowns like this one!',
-  'I shared this with my team immediately.',
-  'How often should we repeat this process?',
-  'This is such a chill vibe, thanks!',
-  'I’m confused about the third step, help?',
-  'Love the thumbnail—who designed it?',
-  'I needed this reminder today.',
+const DEMO_CONVERSATIONS: Array<{ id: string; viewer: string; text: string; response: string | null; autoReplied: boolean }> = [
+  {
+    id: 'demo-convo-1',
+    viewer: 'Avery',
+    text: 'This breakdown is exactly what I needed today.',
+    response: 'Awesome!',
+    autoReplied: true,
+  },
+  {
+    id: 'demo-convo-2',
+    viewer: 'Jordan',
+    text: 'Can you clarify how you set up the lighting?',
+    response: 'Yeah, it was super simple. I just used a few lights and a reflector.',
+    autoReplied: false,
+  },
+  {
+    id: 'demo-convo-3',
+    viewer: 'Harper',
+    text: 'Your energy always brightens my feed!',
+    response: 'Thanks!',
+    autoReplied: false,
+  },
+  {
+    id: 'demo-convo-4',
+    viewer: 'Sky',
+    text: 'Any chance you’ll cover monetization next?',
+    response: 'Yeah, I\'ll definitely cover that in a future video.',
+    autoReplied: false,
+  },
+  {
+    id: 'demo-convo-5',
+    viewer: 'Kai',
+    text: 'I tried this trick and it totally worked!',
+    response: 'Awesome!',
+    autoReplied: false,
+  },
 ];
 
 const randomBetween = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -128,38 +122,42 @@ const parsePublishedAt = (value?: string | null) => {
   return timestamp;
 };
 
-const pickDemoComments = (limit: number): CommentType[] => {
-  const total = Math.min(limit, DEMO_COMMENTS.length);
-  const shuffled = DEMO_COMMENTS.map((text, index) => ({
-    text,
-    sortKey: Math.random(),
-    index,
-  }))
-    .sort((a, b) => a.sortKey - b.sortKey)
-    .slice(0, total);
-
-  return shuffled.map(({ text, index }, idx) => {
-    const name = DEMO_VIEWERS[(index + idx) % DEMO_VIEWERS.length];
-    const sentiment = inferSentiment(text);
+const buildDemoComments = (): CommentType[] =>
+  DEMO_CONVERSATIONS.map((item, index) => {
+    const sentiment = inferSentiment(item.text);
     const risk = deriveRisk(sentiment);
+    const publishedAt = new Date(Date.now() - index * 45 * 60 * 1000).toISOString();
+    const hasResponseText = typeof item.response === 'string' && item.response.length > 0;
+    const isAutoReplied = item.autoReplied === true;
 
     return {
-      id: `demo-comment-${index}`,
-      text,
+      id: item.id,
+      text: item.text,
       author: {
-        displayName: name,
+        displayName: item.viewer,
         channelId: null,
       },
       sentiment,
       risk,
-      suggestedReply: '',
-      status: 'pending',
-      autoReplyId: null,
-      replies: [],
-      publishedAt: new Date(Date.now() - idx * 45 * 60 * 1000).toISOString(),
+      suggestedReply: hasResponseText ? item.response ?? '' : '',
+      status: isAutoReplied ? 'auto-replied' : 'pending',
+      autoReplyId: isAutoReplied ? `demo-reply-${item.id}` : null,
+      replies: isAutoReplied
+        ? [
+            {
+              id: `demo-reply-${item.id}`,
+              text: item.response ?? '',
+              author: {
+                displayName: 'You',
+                channelId: null,
+              },
+              publishedAt,
+            },
+          ]
+        : [],
+      publishedAt,
     };
   });
-};
 
 const CommentsTab: React.FC<CommentsTabProps> = ({
   tone,
@@ -251,7 +249,7 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
   }, [selectedVideo?.id]);
 
   useEffect(() => {
-    displayLimitRef.current = randomBetween(DISPLAY_MIN, DISPLAY_MAX);
+    displayLimitRef.current = isDemoMode ? DEMO_DISPLAY_COUNT : randomBetween(DISPLAY_MIN, DISPLAY_MAX);
   }, [isDemoMode, selectedVideo?.id]);
 
   const loadComments = useCallback(
@@ -273,7 +271,7 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
         let normalized: CommentType[] = [];
 
         if (isDemoMode) {
-          normalized = pickDemoComments(displayLimitRef.current);
+          normalized = buildDemoComments();
         } else if (videoId) {
           const response = await fetch(
             `${apiBaseUrl}/retrieve-comments?videoId=${encodeURIComponent(videoId)}`,
@@ -325,8 +323,8 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
           });
         }
 
-        const limited = enforceDisplayLimit(normalized);
-        const seeded = await seedSuggestedReplies(limited, signal);
+        const limited = isDemoMode ? normalized : enforceDisplayLimit(normalized);
+        const seeded = isDemoMode ? limited : await seedSuggestedReplies(limited, signal);
         if (signal?.aborted) {
           return;
         }

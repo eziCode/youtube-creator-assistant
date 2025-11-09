@@ -2,7 +2,8 @@ import axios from "axios";
 
 const DEFAULT_MODEL = process.env.OPENAI_CHAT_MODEL || "gpt-4.1-nano";
 const MAX_RESPONSES = 10;
-const MAX_WORDS_PER_REPLY = 12;
+const APPROVED_RESPONSES = ["Thanks!", "Appreciate it!", "Noted!", "Awesome!"];
+const DEFAULT_RESPONSE = "Noted!";
 
 const assertEnv = () => {
 	const apiKey = process.env.OPENAI_API_KEY;
@@ -33,6 +34,27 @@ const pickRandomComments = (comments, limit) => {
 	return shuffled.slice(0, limit);
 };
 
+const matchApprovedResponse = (text) => {
+	if (!text || typeof text !== "string") return null;
+	const normalized = text.trim().toLowerCase();
+	if (!normalized) return null;
+
+	const exact = APPROVED_RESPONSES.find((phrase) => normalized === phrase.toLowerCase());
+	if (exact) return exact;
+
+	if (normalized.includes("appreciate")) return "Appreciate it!";
+	if (normalized.includes("awesome")) return "Awesome!";
+	if (normalized.includes("thanks") || normalized.includes("thank")) return "Thanks!";
+	if (normalized.includes("note")) return "Noted!";
+
+	return null;
+};
+
+const sanitizeReply = (text) => {
+	const approved = matchApprovedResponse(text);
+	return approved ?? DEFAULT_RESPONSE;
+};
+
 const buildPrompt = (comments) => {
 	const commentLines = comments
 		.map(
@@ -47,11 +69,15 @@ const buildPrompt = (comments) => {
 		{
 			role: "system",
 			content:
-				`You craft warm, authentic YouTube comment replies that sound human, not corporate or robotic. Every reply must be exactly one short phrase under ${MAX_WORDS_PER_REPLY} words. Avoid punctuation-heavy or formal phrasing.`,
+				`You craft warm, authentic YouTube comment replies that sound human, not corporate or robotic. Every reply must be one of these exact phrases: ${APPROVED_RESPONSES.join(
+					", "
+				)}. Pick whichever fits best, never invent new wording.`,
 		},
 		{
 			role: "user",
-			content: `Write thoughtful replies to these comments. Each response must be a single natural phrase (no full sentences) under ${MAX_WORDS_PER_REPLY} words, friendly, and specific. Don't start with greetings, avoid generic thanks, and keep things casual.\n\nReturn only valid JSON mapping "commentId" -> "responseText". Do not include commentary or markdown.\n\nComments:\n${commentLines}`,
+			content: `Write thoughtful replies to these comments. Each response must be one of the following exact phrases (case-sensitive): ${APPROVED_RESPONSES.join(
+				", "
+			)}. Choose the option that makes the most sense for each comment, avoid repeating the same phrase if another fits, and do not introduce any other wording.\n\nReturn only valid JSON mapping "commentId" -> "responseText". Do not include commentary or markdown.\n\nComments:\n${commentLines}`,
 		},
 	];
 };
@@ -93,8 +119,8 @@ const createCommentResponses = async (comments, { maxResponses = MAX_RESPONSES }
 			"https://api.openai.com/v1/chat/completions",
 			{
 				model: DEFAULT_MODEL,
-				temperature: 0.7,
-				max_tokens: 80,
+				temperature: 0.4,
+				max_tokens: 12,
 				messages,
 				response_format: { type: "json_object" },
 			},
@@ -111,7 +137,7 @@ const createCommentResponses = async (comments, { maxResponses = MAX_RESPONSES }
 		const parsed = parseJsonResponse(content);
 
 		return Object.entries(parsed).reduce((acc, [commentId, reply]) => {
-			const responseText = typeof reply === "string" ? reply.trim() : "";
+			const responseText = sanitizeReply(typeof reply === "string" ? reply : "");
 			if (commentId && responseText) {
 				acc[commentId] = responseText;
 			}

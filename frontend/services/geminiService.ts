@@ -5,6 +5,9 @@ const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 const apiBaseUrl = API_BASE_URL.replace(/\/$/, '');
 
+const APPROVED_RESPONSES = ['Thanks!', 'Appreciate it!', 'Noted!', 'Awesome!'];
+const DEFAULT_APPROVED_RESPONSE = 'Noted!';
+
 const QUESTION_TOKENS = ['?', 'who', 'what', 'when', 'where', 'why', 'how', 'can you'];
 const NEGATIVE_TOKENS = ['hate', 'bad', 'terrible', 'awful', 'issue', 'problem', 'hard', 'difficult', 'confusing'];
 const POSITIVE_TOKENS = ['love', 'great', 'awesome', 'amazing', 'good', 'helpful', 'thanks', 'thank you', 'incredible', 'fire'];
@@ -249,12 +252,27 @@ const applyTemplate = (template: string, context: { name?: string; topic?: strin
   return result;
 };
 
-const enforceWordLimit = (phrase: string, maxWords = 12) => {
-  const words = phrase.split(/\s+/).filter(Boolean);
-  if (words.length <= maxWords) {
-    return phrase;
+const normalizeToApprovedResponse = (phrase: string): string => {
+  if (!phrase || typeof phrase !== 'string') {
+    return DEFAULT_APPROVED_RESPONSE;
   }
-  return words.slice(0, maxWords).join(' ');
+
+  const normalized = phrase.trim().toLowerCase();
+  if (!normalized) {
+    return DEFAULT_APPROVED_RESPONSE;
+  }
+
+  const exact = APPROVED_RESPONSES.find((candidate) => candidate.toLowerCase() === normalized);
+  if (exact) {
+    return exact;
+  }
+
+  if (normalized.includes('appreciate')) return 'Appreciate it!';
+  if (normalized.includes('awesome') || normalized.includes('amazing') || normalized.includes('love')) return 'Awesome!';
+  if (normalized.includes('thanks') || normalized.includes('thank') || normalized.includes('gratitude')) return 'Thanks!';
+  if (normalized.includes('note') || normalized.includes('heard') || normalized.includes('got it')) return 'Noted!';
+
+  return DEFAULT_APPROVED_RESPONSE;
 };
 
 interface GenerateReplyPreviewOptions {
@@ -298,7 +316,7 @@ export const generateReplyPreview = async (
   await delay(options.isDemo ? randomBetween(100, 220) : randomBetween(60, 160));
 
   const phrase = applyTemplate(selected, context);
-  return enforceWordLimit(phrase);
+  return normalizeToApprovedResponse(phrase);
 };
 
 /**
@@ -355,7 +373,7 @@ export const regenerateReply = async (comment: Comment, tone: Tone, options?: Re
       throw new Error('No reply returned from assistant');
     }
 
-    return enforceWordLimit(reply);
+    return normalizeToApprovedResponse(reply);
   } catch (error) {
     console.warn('[gemini] falling back to canned reply', error);
     return generateReplyPreview(comment, tone, {

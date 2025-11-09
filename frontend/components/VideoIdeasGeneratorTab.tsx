@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { API_BASE_URL } from "../constants";
 
 interface VideoIdeasGeneratorTabProps {
@@ -20,11 +20,22 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
   const [shortsIdeas, setShortsIdeas] = useState<GeneratedVideo[]>([]);
   const [videoIdeas, setVideoIdeas] = useState<GeneratedVideo[]>([]);
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
+  const [uploadedImageDataUrl, setUploadedImageDataUrl] = useState<string | null>(null);
+  const [uploadedImageFile, setUploadedImageFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleGenerate = async () => {
     if (!userChannelId) {
       setError("No YouTube channel connected.");
       return;
+    }
+    // If user hasn't selected an image, ask whether they want to upload one now.
+    if (!uploadedImageDataUrl) {
+      const want = window.confirm("Do you want to upload an image to include in the thumbnails? Click OK to select a file now, or Cancel to continue without an image.");
+      if (want) {
+        fileInputRef.current?.click();
+        return; // user will click Generate again after selecting
+      }
     }
     console.log("Generated video ideas for channel ID:", userChannelId);
 
@@ -35,11 +46,33 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
     setExpandedVideoId(null);
 
     try {
+      const payload: any = { channelId: userChannelId, useSample };
+
+      // If user selected a file, upload it first via multipart/form-data
+      if (uploadedImageFile) {
+        const form = new FormData();
+        form.append('image', uploadedImageFile);
+
+        const upResp = await fetch(`${API_BASE_URL}/upload-image`, {
+          method: 'POST',
+          credentials: 'include',
+          body: form,
+        });
+
+        if (!upResp.ok) {
+          const err = await upResp.json().catch(() => ({}));
+          throw new Error(err?.error || 'Image upload failed');
+        }
+
+        const upData = await upResp.json();
+        payload.uploadedImagePath = upData.uploadedImagePath;
+      }
+
       const response = await fetch(`${API_BASE_URL}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // send cookies (session) to backend
-        body: JSON.stringify({ channelId: userChannelId, useSample }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -81,28 +114,40 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
     }
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+      setUploadedImageFile(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        setUploadedImageDataUrl(result);
+      };
+      reader.readAsDataURL(file);
+  };
+
   const renderVideoCard = (video: GeneratedVideo) => {
     const isExpanded = expandedVideoId === video.id;
 
     return (
       <div key={video.id} className="border rounded-lg overflow-hidden shadow-sm mb-4">
-        <div
-          className="flex items-center cursor-pointer hover:bg-gray-100 transition-colors"
+        <button
+          className="w-full text-left cursor-pointer"
           onClick={() => setExpandedVideoId(isExpanded ? null : video.id)}
         >
           {video.thumbnailPath && (
             <img
               src={video.thumbnailPath}
               alt={video.title}
-              className="w-24 h-24 object-cover rounded-l-lg"
+              className="w-full h-48 object-cover bg-gray-200"
             />
           )}
-          <div className="p-2 flex-1">
-            <h4 className="font-semibold text-sm">{video.title}</h4>
+          <div className="p-3">
+            <h4 className="font-semibold text-base line-clamp-2">{video.title}</h4>
           </div>
-        </div>
+        </button>
         {isExpanded && (
-          <div className="p-2 bg-gray-50 text-xs whitespace-pre-line">
+          <div className="p-3 bg-gray-50 text-sm whitespace-pre-line">
             {video.script || "No script available."}
           </div>
         )}
@@ -123,6 +168,8 @@ const VideoIdeasGeneratorTab: React.FC<VideoIdeasGeneratorTabProps> = ({ userCha
       </button>
 
       {error && <p className="text-red-500">{error}</p>}
+
+  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
 
       {/* Shorts Ideas Section */}
       <section>

@@ -6,6 +6,7 @@ import session from "express-session";
 import MongoStore from "connect-mongo";
 import path from "path";
 import generateRouter from "./routes/generate.js";
+import uploadRouter from "./routes/upload.js";
 
 import { retrieveComments } from "../functions/comments/retrieve_comments.js";
 import { getVideos } from "../functions/dashboard/get_videos.js";
@@ -111,7 +112,8 @@ if (!SESSION_SECRET) {
 
 app.set("trust proxy", 1);
 
-app.use(express.json());
+// Ensure CORS runs before body parsing so error responses (like payload-too-large)
+// include the CORS headers the browser expects.
 app.use(
 	cors({
 		origin: FRONTEND_ORIGIN,
@@ -119,8 +121,14 @@ app.use(
 	})
 );
 
+// Increase JSON body size limit for development so base64 image data URIs
+// don't immediately trigger a 413. This is a dev-time convenience; for
+// production prefer a multipart upload endpoint and stricter limits.
+app.use(express.json({ limit: process.env.EXPRESS_JSON_LIMIT || '20mb' }));
+
 const registerRoutes = () => {
 	app.use("/auth", authRouter);
+	app.use("/upload-image", uploadRouter);
 	app.use("/generate", generateRouter);
 
 	app.post("/shorts/download", async (req, res) => {
@@ -636,6 +644,30 @@ const startServer = async () => {
 		app.set("sessionCookieSecure", isProduction);
 
 		registerRoutes();
+
+		// Global error handler — ensures CORS headers are present even when
+		// body parsing fails (PayloadTooLargeError) or other errors occur.
+		// The 4-arg signature lets Express treat this as an error handler.
+		app.use((err, req, res, next) => {
+			try {
+				const origin = req.get('Origin') || FRONTEND_ORIGIN;
+				res.header('Access-Control-Allow-Origin', origin);
+				res.header('Access-Control-Allow-Credentials', 'true');
+
+				// raw-body/body-parser uses err.type === 'entity.too.large'
+				if (err && (err.type === 'entity.too.large' || err.status === 413 || err.statusCode === 413)) {
+					return res.status(413).json({ error: 'Payload too large. Upload a smaller image or use the upload endpoint.' });
+				}
+
+				console.error('[app] unhandled error:', err);
+				return res.status(err?.status || 500).json({ error: err?.message || 'Internal server error' });
+			} catch (handlerErr) {
+				// If the error handler itself fails, log and send a bare response.
+				console.error('[app] error in error handler', handlerErr);
+				try { res.status(500).json({ error: 'Internal server error' }); }
+				catch (e) { /* nothing more we can do */ }
+			}
+		});
 
 		const PORT = process.env.PORT || 4000;
 		app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

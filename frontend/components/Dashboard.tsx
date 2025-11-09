@@ -13,6 +13,7 @@ import {
   fetchDemoVideoAnalytics,
   fetchDemoChannel,
 } from '../services/demoService';
+import VideoLibraryModal, { SortDirection, SortKey } from './VideoLibraryModal';
 
 const DEMO_CHANNEL_ID = 'UCfpCQ89W9wjkHc8J_6eTbBg';
 
@@ -53,6 +54,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [videoNextPageToken, setVideoNextPageToken] = useState<string | null>(null);
   const [isLoadingMoreVideos, setIsLoadingMoreVideos] = useState<boolean>(false);
   const videoFetchControllerRef = useRef<AbortController | null>(null);
+  const [isVideoLibraryOpen, setIsVideoLibraryOpen] = useState(false);
+  const [videoSortKey, setVideoSortKey] = useState<SortKey>('views');
+  const [videoSortDirection, setVideoSortDirection] = useState<SortDirection>('desc');
 
   const apiBaseUrl = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
   const demoChannelTitle = useMemo(() => {
@@ -238,7 +242,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     [activeChannelId, apiBaseUrl, isDemoMode, toDateOnly, useSampleData]
   );
 
-  const displayedVideos = useMemo(() => {
+  const filteredVideos = useMemo(() => {
     if (!isDemoMode) {
       const term = videoSearchTerm.trim().toLowerCase();
       if (!term) {
@@ -250,6 +254,35 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
     return videos;
   }, [videos, isDemoMode, videoSearchTerm]);
+
+  const displayedVideos = useMemo(() => {
+    const list = [...filteredVideos];
+    const compare = (a: Video, b: Video) => {
+      switch (videoSortKey) {
+        case 'alphabetical': {
+          const titleA = (a.title ?? '').toLowerCase();
+          const titleB = (b.title ?? '').toLowerCase();
+          return titleA.localeCompare(titleB);
+        }
+        case 'likes': {
+          const likesA = Number.isFinite(a.likeCount) ? (a.likeCount as number) : -Infinity;
+          const likesB = Number.isFinite(b.likeCount) ? (b.likeCount as number) : -Infinity;
+          return likesA - likesB;
+        }
+        case 'views':
+        default: {
+          const viewsA = Number.isFinite(a.viewCount) ? (a.viewCount as number) : -Infinity;
+          const viewsB = Number.isFinite(b.viewCount) ? (b.viewCount as number) : -Infinity;
+          return viewsA - viewsB;
+        }
+      }
+    };
+    list.sort(compare);
+    if (videoSortDirection === 'desc') {
+      list.reverse();
+    }
+    return list;
+  }, [filteredVideos, videoSortKey, videoSortDirection]);
 
   useEffect(() => {
     if (!isDemoMode || typeof onUpdateDemoChannel !== 'function') {
@@ -347,22 +380,28 @@ const Dashboard: React.FC<DashboardProps> = ({
     [isDemoMode, loadVideos]
   );
 
-  const handleClearVideoSearch = useCallback(() => {
-    if (!videoSearchTerm) {
-      return;
-    }
-    setVideoSearchTerm('');
-    if (isDemoMode) {
-      void loadVideos({ reset: true, searchOverride: '' });
-    }
-  }, [isDemoMode, loadVideos, videoSearchTerm]);
-
   const handleLoadMoreVideos = useCallback(() => {
     if (!videoNextPageToken) {
       return;
     }
     void loadVideos({ pageToken: videoNextPageToken });
   }, [loadVideos, videoNextPageToken]);
+
+  const handleOpenVideoLibrary = useCallback(() => {
+    setIsVideoLibraryOpen(true);
+  }, []);
+
+  const handleCloseVideoLibrary = useCallback(() => {
+    setIsVideoLibraryOpen(false);
+  }, []);
+
+  const handleChangeSortKey = useCallback((key: SortKey) => {
+    setVideoSortKey(key);
+  }, []);
+
+  const handleToggleSortDirection = useCallback(() => {
+    setVideoSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+  }, []);
 
   useEffect(() => {
     if (!activeChannelId) {
@@ -687,14 +726,9 @@ const Dashboard: React.FC<DashboardProps> = ({
             setSelectedVideo={setSelectedVideo}
             videos={displayedVideos}
             isLoading={isLoadingVideos}
-            isLoadingMore={isLoadingMoreVideos}
             error={videoError}
-            onSearch={handleVideoSearch}
-            onClearSearch={handleClearVideoSearch}
-            searchTerm={videoSearchTerm}
-            onLoadMoreVideos={handleLoadMoreVideos}
-            hasMoreVideos={Boolean(videoNextPageToken)}
             isDemoMode={isDemoMode}
+            onOpenVideoBrowser={handleOpenVideoLibrary}
           />
 
           <main>
@@ -704,6 +738,23 @@ const Dashboard: React.FC<DashboardProps> = ({
           </main>
         </div>
       </div>
+      <VideoLibraryModal
+        isOpen={isVideoLibraryOpen}
+        onClose={handleCloseVideoLibrary}
+        videos={displayedVideos}
+        selectedVideoId={selectedVideo?.id ?? null}
+        onSelectVideo={(video) => setSelectedVideo(video)}
+        searchTerm={videoSearchTerm}
+        onSearch={handleVideoSearch}
+        isLoading={isLoadingVideos && !isLoadingMoreVideos}
+        isLoadingMore={isLoadingMoreVideos}
+        hasMore={Boolean(videoNextPageToken)}
+        onLoadMore={handleLoadMoreVideos}
+        sortKey={videoSortKey}
+        sortDirection={videoSortDirection}
+        onChangeSortKey={handleChangeSortKey}
+        onToggleSortDirection={handleToggleSortDirection}
+      />
     </div>
   );
 };

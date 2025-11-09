@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Tab, Video } from '../types';
 import { ChartBarIcon, MessageCircleIcon, FilmIcon, SettingsIcon } from './icons';
 
@@ -10,13 +10,8 @@ interface SidebarProps {
   videos: Video[];
   isLoading: boolean;
   error: string | null;
-  isLoadingMore?: boolean;
-  onSearch?: (query: string) => void;
-  onClearSearch?: () => void;
-  searchTerm?: string;
-  onLoadMoreVideos?: () => void;
-  hasMoreVideos?: boolean;
   isDemoMode?: boolean;
+  onOpenVideoBrowser: () => void;
 }
 
 const navItems = [
@@ -36,19 +31,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   isLoading,
   error,
   isLoadingMore,
-  onSearch,
-  onClearSearch,
-  searchTerm,
-  onLoadMoreVideos,
-  hasMoreVideos,
   isDemoMode,
+  onOpenVideoBrowser,
 }) => {
-  const [searchInput, setSearchInput] = useState(searchTerm ?? '');
-
-  useEffect(() => {
-    setSearchInput(searchTerm ?? '');
-  }, [searchTerm]);
-
   const numberFormatter = useMemo(
     () =>
       new Intl.NumberFormat(undefined, {
@@ -70,26 +55,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     return parsed.toLocaleDateString();
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    onSearch?.(searchInput);
-  };
-
-  const handleClearSearch = () => {
-    setSearchInput('');
-    onClearSearch?.();
-  };
-
   const handleVideoSelect = (video: Video) => {
     setSelectedVideo(video);
   };
 
   const selectedVideoId = selectedVideo?.id ?? null;
-  const isSearching = Boolean(searchTerm && searchTerm.length > 0);
-  const searchPlaceholder = isDemoMode
-    ? 'Search Outdoor Boys videos'
-    : 'Filter videos by title';
-
   const showEmptyState = !isLoading && videos.length === 0;
 
   return (
@@ -157,34 +127,17 @@ const Sidebar: React.FC<SidebarProps> = ({
           </span>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-4 flex gap-3">
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder={searchPlaceholder}
-            className="flex-1 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-white/80 shadow-inner shadow-black/40 transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/40"
-          />
-          <button
-            type="submit"
-            className="rounded-2xl bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white shadow-[0_12px_30px_rgba(99,102,241,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(99,102,241,0.4)] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-          >
-            Search
-          </button>
-          {searchInput && (
-            <button
-              type="button"
-              onClick={handleClearSearch}
-              className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/70 shadow-inner shadow-white/10 transition hover:border-white/40 hover:text-white"
-            >
-              Clear
-            </button>
-          )}
-        </form>
+        <button
+          type="button"
+          onClick={onOpenVideoBrowser}
+          className="mt-4 w-full rounded-2xl bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white shadow-[0_18px_45px_rgba(99,102,241,0.45)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(99,102,241,0.55)] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+        >
+          Browse & Filter
+        </button>
         <p className="mt-2 text-xs text-white/60">
           {isDemoMode
-            ? 'Search taps directly into Outdoor Boys’ public catalog so judges can jump to any video instantly.'
-            : 'Filter the loaded videos to quickly focus on a title you want to analyze.'}
+            ? 'Open the full Outdoor Boys catalog to explore by keyword, popularity, or alphabetical order.'
+            : 'Browse your uploads in a dedicated picker to quickly update analytics, comments, and shorts.'}
         </p>
 
         <div className="mt-5 space-y-4">
@@ -200,9 +153,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
             ) : showEmptyState ? (
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-white/60 shadow-inner shadow-white/5">
-                {isSearching
-                  ? 'No videos match your search yet. Try a different keyword.'
-                  : 'Videos will appear here once we fetch them from YouTube.'}
+                Videos will appear here once we fetch them from YouTube.
               </div>
             ) : (
               <div className="space-y-3">
@@ -233,17 +184,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
             )}
           </div>
-
-          {hasMoreVideos && (
-            <button
-              type="button"
-              onClick={onLoadMoreVideos}
-              disabled={isLoadingMore}
-              className="w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/70 shadow-inner shadow-white/10 transition hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isLoadingMore ? 'Loading more…' : 'Load more videos'}
-            </button>
-          )}
 
           {error && !isLoading && (
             <p className="rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-xs text-rose-200 shadow-inner shadow-rose-500/20">

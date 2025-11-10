@@ -135,6 +135,10 @@ const registerRoutes = () => {
 	app.use("/generate", generateRouter);
 	app.use("/demo", demoRouter);
 
+	app.get("/", (req, res) => {
+		res.send("✅ EngageAI API is running!");
+	});
+
 	app.post("/shorts/download", async (req, res) => {
 		if (!req.session?.tokens?.accessToken) {
 			return res.status(401).json({ error: "authentication required" });
